@@ -1,14 +1,15 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Roast Logger v5</title>
+  <title>Roast Mode Pro</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
   <style>
     body {
       margin: 0;
-      font-family: Arial, sans-serif;
-      background: #121212;
-      color: #fff;
+      font-family: Arial;
+      background: #111;
+      color: white;
       text-align: center;
     }
 
@@ -17,82 +18,76 @@
     #timer {
       font-size: 64px;
       font-weight: bold;
-      margin: 10px 0;
+      margin: 5px;
     }
 
-    .controls button {
+    #countdown {
       font-size: 20px;
-      padding: 15px 25px;
+      color: #aaa;
+    }
+
+    button, input {
+      font-size: 18px;
+      padding: 12px;
       margin: 5px;
-      border-radius: 10px;
+      border-radius: 8px;
       border: none;
+    }
+
+    button {
       background: #333;
       color: white;
     }
 
-    .controls button:hover {
+    button:hover {
       background: #555;
+    }
+
+    input {
+      width: 120px;
+      text-align: center;
     }
 
     .stats {
       display: flex;
       justify-content: space-around;
-      margin: 15px 0;
-      font-size: 18px;
-    }
-
-    .input-area {
       margin: 10px;
     }
 
-    input {
-      font-size: 20px;
-      padding: 10px;
-      width: 150px;
-      text-align: center;
-      border-radius: 8px;
-      border: none;
-    }
-
     canvas {
-      max-width: 100%;
-      background: #1e1e1e;
+      max-width: 95%;
+      background: #1a1a1a;
       border-radius: 10px;
       margin-top: 10px;
     }
 
     #status {
-      margin-top: 10px;
       color: #aaa;
+      margin: 10px;
     }
   </style>
 </head>
+
 <body>
 
-<h1>Roast Logger</h1>
+<h1>Roast Mode Pro</h1>
+
 <div id="timer">00:00</div>
+<div id="countdown">Next reading in: 30s</div>
 
-<div class="controls">
-  <button onclick="startRoast()">Start</button>
-  <button onclick="stopRoast()">Stop</button>
-  <button onclick="downloadCSV()">Export</button>
-</div>
+<button onclick="startRoast()">Start</button>
+<button onclick="stopRoast()">Stop</button>
+<button onclick="downloadCSV()">Export CSV</button>
 
-<div class="controls">
-  <button onclick="markEvent('first')">First Crack</button>
-  <button onclick="markEvent('second')">Second Crack</button>
-  <button onclick="markEvent('yellow')">Yellow</button>
-</div>
+<br>
 
-<div class="input-area">
-  <input id="manualTemp" placeholder="Temp">
-  <button onclick="submitManual()">Add</button>
-</div>
+<input id="manualTemp" placeholder="Temp">
+<button onclick="submitManual()">Add</button>
 
 <div class="stats">
-  <div id="currentTemp">Temp: --</div>
+  <div id="temp">Temp: --</div>
   <div id="ror">RoR: --</div>
-  <div id="devTime">Dev: --</div>
+  <div id="dev">Dev: --</div>
 </div>
 
 <p id="status">Ready</p>
@@ -103,7 +98,13 @@
 let data = [];
 let seconds = 0;
 let totalSeconds = 0;
-let timer, timerInterval;
+
+let timer;
+let timerInterval;
+let countdownTimer;
+
+let countdown = 30;
+let state = "READY";
 let listening = false;
 
 let events = { first:null, second:null, yellow:null };
@@ -115,17 +116,22 @@ const chart = new Chart(ctx, {
   data: {
     labels: [],
     datasets: [
-      { label: 'Temp', data: [], tension: 0.3 },
-      { label: 'RoR', data: [], tension: 0.3 },
+      { label: 'Temp', data: [], tension: 0.25 },
+      { label: 'RoR', data: [], tension: 0.25 },
       { label: 'Events', data: [], showLine: false, pointRadius: 6 }
     ]
   }
 });
 
+
+// ---------------- START / STOP ----------------
+
 function startRoast() {
   data = [];
   seconds = 0;
   totalSeconds = 0;
+  countdown = 30;
+  state = "READY";
   events = { first:null, second:null, yellow:null };
 
   chart.data.labels = [];
@@ -135,11 +141,18 @@ function startRoast() {
   timer = setInterval(() => {
     seconds += 30;
     ask();
+    resetCountdown();
   }, 30000);
 
   timerInterval = setInterval(() => {
     totalSeconds++;
     updateTimer();
+  }, 1000);
+
+  countdownTimer = setInterval(() => {
+    countdown--;
+    if (countdown <= 0) countdown = 30;
+    updateCountdown();
   }, 1000);
 
   ask();
@@ -148,33 +161,81 @@ function startRoast() {
 function stopRoast() {
   clearInterval(timer);
   clearInterval(timerInterval);
+  clearInterval(countdownTimer);
   speak("Roast complete");
 }
+
+
+// ---------------- TIMER UI ----------------
 
 function updateTimer() {
   let m = Math.floor(totalSeconds / 60);
   let s = totalSeconds % 60;
+
   document.getElementById("timer").innerText =
     String(m).padStart(2,'0') + ":" + String(s).padStart(2,'0');
 }
 
-function ask() {
-  if (listening) return;
-  listening = true;
-
-  speak("Temperature");
-
-  listen(text => {
-    let t = text.toLowerCase();
-
-    detectEvent(t);
-
-    let temp = parseNumber(t);
-    if (temp !== null) logTemp(temp);
-
-    listening = false;
-  });
+function updateCountdown() {
+  document.getElementById("countdown").innerText =
+    "Next reading in: " + countdown + "s";
 }
+
+function resetCountdown() {
+  countdown = 30;
+  updateCountdown();
+}
+
+
+// ---------------- ROAST FLOW ----------------
+
+function ask() {
+  if (state !== "READY") return;
+
+  state = "ASKING";
+
+  speak("Temperature check");
+
+  setTimeout(() => {
+    state = "LISTENING";
+    listen(handleSpeech);
+
+    // auto-skip safety
+    setTimeout(() => {
+      if (state === "LISTENING") {
+        document.getElementById("status").innerText = "No input (skipped)";
+        state = "READY";
+      }
+    }, 8000);
+
+  }, 600);
+}
+
+function handleSpeech(text) {
+  state = "PROCESSING";
+
+  if (!text) {
+    state = "READY";
+    return;
+  }
+
+  let t = text.toLowerCase();
+
+  detectEvent(t);
+
+  let temp = parseNumber(t);
+
+  if (temp !== null) {
+    logTemp(temp);
+  } else {
+    document.getElementById("status").innerText = "No temp detected";
+  }
+
+  state = "READY";
+}
+
+
+// ---------------- EVENTS ----------------
 
 function detectEvent(text) {
   if (text.includes("first crack")) confirmEvent("first");
@@ -183,7 +244,7 @@ function detectEvent(text) {
 }
 
 function confirmEvent(type) {
-  speak("Confirm " + type);
+  speak("Did you say " + type + "?");
 
   listen(resp => {
     if (resp.toLowerCase().includes("yes")) {
@@ -203,30 +264,38 @@ function markEvent(type) {
   });
 
   chart.update();
+
+  document.getElementById("status").innerText =
+    type + " marked";
 }
+
+
+// ---------------- DATA LOGGING ----------------
 
 function logTemp(temp) {
   data.push({ time: seconds, temp });
 
-  document.getElementById("currentTemp").innerText =
-    "Temp: " + temp;
+  document.getElementById("temp").innerText = "Temp: " + temp;
 
   chart.data.labels.push(seconds + "s");
   chart.data.datasets[0].data.push(temp);
 
   updateRoR();
-  updateDevTime();
+  updateDev();
 
   chart.update();
 }
 
+
+// ---------------- ANALYTICS ----------------
+
 function updateRoR() {
   if (data.length < 2) return;
 
-  let last = data[data.length-1];
-  let prev = data[data.length-2];
+  let a = data[data.length-1];
+  let b = data[data.length-2];
 
-  let ror = (last.temp - prev.temp) / 0.5;
+  let ror = (a.temp - b.temp) / 0.5;
 
   chart.data.datasets[1].data.push(ror);
 
@@ -234,21 +303,26 @@ function updateRoR() {
     "RoR: " + ror.toFixed(1);
 }
 
-function updateDevTime() {
+function updateDev() {
   if (!events.first) return;
 
-  let total = seconds;
-  let dev = total - events.first;
-  let percent = (dev / total) * 100;
+  let dev = seconds - events.first;
+  let pct = (dev / seconds) * 100;
 
-  document.getElementById("devTime").innerText =
-    "Dev: " + percent.toFixed(1) + "%";
+  document.getElementById("dev").innerText =
+    "Dev: " + pct.toFixed(1) + "%";
 }
+
+
+// ---------------- INPUT ----------------
 
 function submitManual() {
-  let val = parseInt(document.getElementById("manualTemp").value);
-  if (!isNaN(val)) logTemp(val);
+  let v = parseInt(document.getElementById("manualTemp").value);
+  if (!isNaN(v)) logTemp(v);
 }
+
+
+// ---------------- EXPORT ----------------
 
 function downloadCSV() {
   let csv = "Time,Temp\n";
@@ -261,15 +335,29 @@ function downloadCSV() {
   a.click();
 }
 
+
+// ---------------- VOICE ----------------
+
 function listen(cb) {
-  const rec = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const rec = new SpeechRecognition();
+
+  rec.lang = "en-US";
+  rec.interimResults = false;
+
   rec.onresult = e => cb(e.results[0][0].transcript);
+  rec.onerror = () => { state = "READY"; };
+  rec.onend = () => { listening = false; };
+
   rec.start();
 }
 
 function speak(text) {
   speechSynthesis.speak(new SpeechSynthesisUtterance(text));
 }
+
+
+// ---------------- PARSER ----------------
 
 function parseNumber(text) {
   if (text.match(/\d+/)) return parseInt(text.match(/\d+/)[0]);
@@ -281,6 +369,7 @@ function parseNumber(text) {
   };
 
   let total = 0;
+
   text.split(" ").forEach(w => {
     if (map[w]) {
       if (map[w] === 100) total *= 100;
@@ -290,7 +379,7 @@ function parseNumber(text) {
 
   return total || null;
 }
-</script>
 
+</script>
 </body>
 </html>
