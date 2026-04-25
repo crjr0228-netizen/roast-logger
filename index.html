@@ -1,57 +1,122 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Roast Logger v4</title>
+  <title>Roast Logger v5</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
-    body { font-family: Arial; text-align: center; padding: 20px; }
-    button, input { font-size: 18px; padding: 10px; margin: 5px; }
-    canvas { max-width: 900px; margin: auto; }
-    .stats { margin-top: 15px; font-size: 18px; }
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #121212;
+      color: #fff;
+      text-align: center;
+    }
+
+    h1 { margin: 10px 0; }
+
+    #timer {
+      font-size: 64px;
+      font-weight: bold;
+      margin: 10px 0;
+    }
+
+    .controls button {
+      font-size: 20px;
+      padding: 15px 25px;
+      margin: 5px;
+      border-radius: 10px;
+      border: none;
+      background: #333;
+      color: white;
+    }
+
+    .controls button:hover {
+      background: #555;
+    }
+
+    .stats {
+      display: flex;
+      justify-content: space-around;
+      margin: 15px 0;
+      font-size: 18px;
+    }
+
+    .input-area {
+      margin: 10px;
+    }
+
+    input {
+      font-size: 20px;
+      padding: 10px;
+      width: 150px;
+      text-align: center;
+      border-radius: 8px;
+      border: none;
+    }
+
+    canvas {
+      max-width: 100%;
+      background: #1e1e1e;
+      border-radius: 10px;
+      margin-top: 10px;
+    }
+
+    #status {
+      margin-top: 10px;
+      color: #aaa;
+    }
   </style>
 </head>
 <body>
 
-<h1>Roast Logger v4</h1>
+<h1>Roast Logger</h1>
+<div id="timer">00:00</div>
 
-<button onclick="startRoast()">Start</button>
-<button onclick="stopRoast()">Stop</button>
-<button onclick="downloadCSV()">Download CSV</button>
+<div class="controls">
+  <button onclick="startRoast()">Start</button>
+  <button onclick="stopRoast()">Stop</button>
+  <button onclick="downloadCSV()">Export</button>
+</div>
 
-<br>
-<input id="manualTemp" placeholder="Manual temp">
-<button onclick="submitManual()">Submit</button>
+<div class="controls">
+  <button onclick="markEvent('first')">First Crack</button>
+  <button onclick="markEvent('second')">Second Crack</button>
+  <button onclick="markEvent('yellow')">Yellow</button>
+</div>
 
-<p id="status">Waiting</p>
+<div class="input-area">
+  <input id="manualTemp" placeholder="Temp">
+  <button onclick="submitManual()">Add</button>
+</div>
 
 <div class="stats">
-  <p id="devTime">Development %: --</p>
-  <p id="ror">RoR: --</p>
+  <div id="currentTemp">Temp: --</div>
+  <div id="ror">RoR: --</div>
+  <div id="devTime">Dev: --</div>
 </div>
+
+<p id="status">Ready</p>
 
 <canvas id="chart"></canvas>
 
 <script>
 let data = [];
 let seconds = 0;
-let timer;
+let totalSeconds = 0;
+let timer, timerInterval;
 let listening = false;
 
-let events = {
-  first: null,
-  second: null,
-  yellow: null
-};
+let events = { first:null, second:null, yellow:null };
 
-let ctx = document.getElementById('chart').getContext('2d');
+const ctx = document.getElementById('chart').getContext('2d');
 
-let chart = new Chart(ctx, {
+const chart = new Chart(ctx, {
   type: 'line',
   data: {
     labels: [],
     datasets: [
-      { label: 'Temp', data: [], tension: 0.2 },
-      { label: 'RoR', data: [], tension: 0.2 },
+      { label: 'Temp', data: [], tension: 0.3 },
+      { label: 'RoR', data: [], tension: 0.3 },
       { label: 'Events', data: [], showLine: false, pointRadius: 6 }
     ]
   }
@@ -60,6 +125,7 @@ let chart = new Chart(ctx, {
 function startRoast() {
   data = [];
   seconds = 0;
+  totalSeconds = 0;
   events = { first:null, second:null, yellow:null };
 
   chart.data.labels = [];
@@ -71,20 +137,33 @@ function startRoast() {
     ask();
   }, 30000);
 
+  timerInterval = setInterval(() => {
+    totalSeconds++;
+    updateTimer();
+  }, 1000);
+
   ask();
 }
 
 function stopRoast() {
   clearInterval(timer);
-  speak("Roast finished");
+  clearInterval(timerInterval);
+  speak("Roast complete");
+}
+
+function updateTimer() {
+  let m = Math.floor(totalSeconds / 60);
+  let s = totalSeconds % 60;
+  document.getElementById("timer").innerText =
+    String(m).padStart(2,'0') + ":" + String(s).padStart(2,'0');
 }
 
 function ask() {
   if (listening) return;
   listening = true;
 
-  speak("Temperature?");
-  
+  speak("Temperature");
+
   listen(text => {
     let t = text.toLowerCase();
 
@@ -104,26 +183,33 @@ function detectEvent(text) {
 }
 
 function confirmEvent(type) {
-  speak("Confirm " + type + "?");
-  
+  speak("Confirm " + type);
+
   listen(resp => {
     if (resp.toLowerCase().includes("yes")) {
-      events[type] = seconds;
-
-      let lastTemp = data[data.length-1]?.temp || 0;
-
-      chart.data.datasets[2].data.push({
-        x: seconds + "s",
-        y: lastTemp
-      });
-
-      chart.update();
+      markEvent(type);
     }
   });
 }
 
+function markEvent(type) {
+  events[type] = seconds;
+
+  let lastTemp = data[data.length-1]?.temp || 0;
+
+  chart.data.datasets[2].data.push({
+    x: seconds + "s",
+    y: lastTemp
+  });
+
+  chart.update();
+}
+
 function logTemp(temp) {
   data.push({ time: seconds, temp });
+
+  document.getElementById("currentTemp").innerText =
+    "Temp: " + temp;
 
   chart.data.labels.push(seconds + "s");
   chart.data.datasets[0].data.push(temp);
@@ -140,7 +226,7 @@ function updateRoR() {
   let last = data[data.length-1];
   let prev = data[data.length-2];
 
-  let ror = (last.temp - prev.temp) / 0.5; // per minute
+  let ror = (last.temp - prev.temp) / 0.5;
 
   chart.data.datasets[1].data.push(ror);
 
@@ -153,11 +239,10 @@ function updateDevTime() {
 
   let total = seconds;
   let dev = total - events.first;
-
   let percent = (dev / total) * 100;
 
   document.getElementById("devTime").innerText =
-    "Development %: " + percent.toFixed(1);
+    "Dev: " + percent.toFixed(1) + "%";
 }
 
 function submitManual() {
@@ -167,9 +252,7 @@ function submitManual() {
 
 function downloadCSV() {
   let csv = "Time,Temp\n";
-  data.forEach(d => {
-    csv += `${d.time},${d.temp}\n`;
-  });
+  data.forEach(d => csv += `${d.time},${d.temp}\n`);
 
   let blob = new Blob([csv], { type: 'text/csv' });
   let a = document.createElement("a");
