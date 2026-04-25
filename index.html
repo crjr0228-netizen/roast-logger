@@ -1,229 +1,213 @@
-<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<!DOCTYPE html>
 <html>
 <head>
-  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-  <meta http-equiv="Content-Style-Type" content="text/css">
-  <title></title>
-  <meta name="Generator" content="Cocoa HTML Writer">
-  <meta name="CocoaVersion" content="2575.7">
-  <style type="text/css">
-    p.p1 {margin: 0.0px 0.0px 0.0px 0.0px; font: 12.0px Helvetica}
-    p.p2 {margin: 0.0px 0.0px 0.0px 0.0px; font: 12.0px Helvetica; min-height: 14.0px}
+  <title>Roast Logger v4</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body { font-family: Arial; text-align: center; padding: 20px; }
+    button, input { font-size: 18px; padding: 10px; margin: 5px; }
+    canvas { max-width: 900px; margin: auto; }
+    .stats { margin-top: 15px; font-size: 18px; }
   </style>
 </head>
 <body>
-<p class="p1">&lt;!DOCTYPE html&gt;</p>
-<p class="p1">&lt;html&gt;</p>
-<p class="p1">&lt;head&gt;</p>
-<p class="p1"><span class="Apple-converted-space">  </span>&lt;title&gt;Roast Logger v4&lt;/title&gt;</p>
-<p class="p1"><span class="Apple-converted-space">  </span>&lt;script src="https://cdn.jsdelivr.net/npm/chart.js"&gt;&lt;/script&gt;</p>
-<p class="p1"><span class="Apple-converted-space">  </span>&lt;style&gt;</p>
-<p class="p1"><span class="Apple-converted-space">    </span>body { font-family: Arial; text-align: center; padding: 20px; }</p>
-<p class="p1"><span class="Apple-converted-space">    </span>button, input { font-size: 18px; padding: 10px; margin: 5px; }</p>
-<p class="p1"><span class="Apple-converted-space">    </span>canvas { max-width: 900px; margin: auto; }</p>
-<p class="p1"><span class="Apple-converted-space">    </span>.stats { margin-top: 15px; font-size: 18px; }</p>
-<p class="p1"><span class="Apple-converted-space">  </span>&lt;/style&gt;</p>
-<p class="p1">&lt;/head&gt;</p>
-<p class="p1">&lt;body&gt;</p>
-<p class="p2"><br></p>
-<p class="p1">&lt;h1&gt;Roast Logger v4&lt;/h1&gt;</p>
-<p class="p2"><br></p>
-<p class="p1">&lt;button onclick="startRoast()"&gt;Start&lt;/button&gt;</p>
-<p class="p1">&lt;button onclick="stopRoast()"&gt;Stop&lt;/button&gt;</p>
-<p class="p1">&lt;button onclick="downloadCSV()"&gt;Download CSV&lt;/button&gt;</p>
-<p class="p2"><br></p>
-<p class="p1">&lt;br&gt;</p>
-<p class="p1">&lt;input id="manualTemp" placeholder="Manual temp"&gt;</p>
-<p class="p1">&lt;button onclick="submitManual()"&gt;Submit&lt;/button&gt;</p>
-<p class="p2"><br></p>
-<p class="p1">&lt;p id="status"&gt;Waiting&lt;/p&gt;</p>
-<p class="p2"><br></p>
-<p class="p1">&lt;div class="stats"&gt;</p>
-<p class="p1"><span class="Apple-converted-space">  </span>&lt;p id="devTime"&gt;Development %: --&lt;/p&gt;</p>
-<p class="p1"><span class="Apple-converted-space">  </span>&lt;p id="ror"&gt;RoR: --&lt;/p&gt;</p>
-<p class="p1">&lt;/div&gt;</p>
-<p class="p2"><br></p>
-<p class="p1">&lt;canvas id="chart"&gt;&lt;/canvas&gt;</p>
-<p class="p2"><br></p>
-<p class="p1">&lt;script&gt;</p>
-<p class="p1">let data = [];</p>
-<p class="p1">let seconds = 0;</p>
-<p class="p1">let timer;</p>
-<p class="p1">let listening = false;</p>
-<p class="p2"><br></p>
-<p class="p1">let events = {</p>
-<p class="p1"><span class="Apple-converted-space">  </span>first: null,</p>
-<p class="p1"><span class="Apple-converted-space">  </span>second: null,</p>
-<p class="p1"><span class="Apple-converted-space">  </span>yellow: null</p>
-<p class="p1">};</p>
-<p class="p2"><br></p>
-<p class="p1">let ctx = document.getElementById('chart').getContext('2d');</p>
-<p class="p2"><br></p>
-<p class="p1">let chart = new Chart(ctx, {</p>
-<p class="p1"><span class="Apple-converted-space">  </span>type: 'line',</p>
-<p class="p1"><span class="Apple-converted-space">  </span>data: {</p>
-<p class="p1"><span class="Apple-converted-space">    </span>labels: [],</p>
-<p class="p1"><span class="Apple-converted-space">    </span>datasets: [</p>
-<p class="p1"><span class="Apple-converted-space">      </span>{ label: 'Temp', data: [], tension: 0.2 },</p>
-<p class="p1"><span class="Apple-converted-space">      </span>{ label: 'RoR', data: [], tension: 0.2 },</p>
-<p class="p1"><span class="Apple-converted-space">      </span>{ label: 'Events', data: [], showLine: false, pointRadius: 6 }</p>
-<p class="p1"><span class="Apple-converted-space">    </span>]</p>
-<p class="p1"><span class="Apple-converted-space">  </span>}</p>
-<p class="p1">});</p>
-<p class="p2"><br></p>
-<p class="p1">function startRoast() {</p>
-<p class="p1"><span class="Apple-converted-space">  </span>data = [];</p>
-<p class="p1"><span class="Apple-converted-space">  </span>seconds = 0;</p>
-<p class="p1"><span class="Apple-converted-space">  </span>events = { first:null, second:null, yellow:null };</p>
-<p class="p2"><br></p>
-<p class="p1"><span class="Apple-converted-space">  </span>chart.data.labels = [];</p>
-<p class="p1"><span class="Apple-converted-space">  </span>chart.data.datasets.forEach(d =&gt; d.data = []);</p>
-<p class="p1"><span class="Apple-converted-space">  </span>chart.update();</p>
-<p class="p2"><br></p>
-<p class="p1"><span class="Apple-converted-space">  </span>timer = setInterval(() =&gt; {</p>
-<p class="p1"><span class="Apple-converted-space">    </span>seconds += 30;</p>
-<p class="p1"><span class="Apple-converted-space">    </span>ask();</p>
-<p class="p1"><span class="Apple-converted-space">  </span>}, 30000);</p>
-<p class="p2"><br></p>
-<p class="p1"><span class="Apple-converted-space">  </span>ask();</p>
-<p class="p1">}</p>
-<p class="p2"><br></p>
-<p class="p1">function stopRoast() {</p>
-<p class="p1"><span class="Apple-converted-space">  </span>clearInterval(timer);</p>
-<p class="p1"><span class="Apple-converted-space">  </span>speak("Roast finished");</p>
-<p class="p1">}</p>
-<p class="p2"><br></p>
-<p class="p1">function ask() {</p>
-<p class="p1"><span class="Apple-converted-space">  </span>if (listening) return;</p>
-<p class="p1"><span class="Apple-converted-space">  </span>listening = true;</p>
-<p class="p2"><br></p>
-<p class="p1"><span class="Apple-converted-space">  </span>speak("Temperature?");</p>
-<p class="p2"><span class="Apple-converted-space">  </span></p>
-<p class="p1"><span class="Apple-converted-space">  </span>listen(text =&gt; {</p>
-<p class="p1"><span class="Apple-converted-space">    </span>let t = text.toLowerCase();</p>
-<p class="p2"><br></p>
-<p class="p1"><span class="Apple-converted-space">    </span>detectEvent(t);</p>
-<p class="p2"><br></p>
-<p class="p1"><span class="Apple-converted-space">    </span>let temp = parseNumber(t);</p>
-<p class="p1"><span class="Apple-converted-space">    </span>if (temp !== null) logTemp(temp);</p>
-<p class="p2"><br></p>
-<p class="p1"><span class="Apple-converted-space">    </span>listening = false;</p>
-<p class="p1"><span class="Apple-converted-space">  </span>});</p>
-<p class="p1">}</p>
-<p class="p2"><br></p>
-<p class="p1">function detectEvent(text) {</p>
-<p class="p1"><span class="Apple-converted-space">  </span>if (text.includes("first crack")) confirmEvent("first");</p>
-<p class="p1"><span class="Apple-converted-space">  </span>if (text.includes("second crack")) confirmEvent("second");</p>
-<p class="p1"><span class="Apple-converted-space">  </span>if (text.includes("yellow")) confirmEvent("yellow");</p>
-<p class="p1">}</p>
-<p class="p2"><br></p>
-<p class="p1">function confirmEvent(type) {</p>
-<p class="p1"><span class="Apple-converted-space">  </span>speak("Confirm " + type + "?");</p>
-<p class="p2"><span class="Apple-converted-space">  </span></p>
-<p class="p1"><span class="Apple-converted-space">  </span>listen(resp =&gt; {</p>
-<p class="p1"><span class="Apple-converted-space">    </span>if (resp.toLowerCase().includes("yes")) {</p>
-<p class="p1"><span class="Apple-converted-space">      </span>events[type] = seconds;</p>
-<p class="p2"><br></p>
-<p class="p1"><span class="Apple-converted-space">      </span>let lastTemp = data[data.length-1]?.temp || 0;</p>
-<p class="p2"><br></p>
-<p class="p1"><span class="Apple-converted-space">      </span>chart.data.datasets[2].data.push({</p>
-<p class="p1"><span class="Apple-converted-space">        </span>x: seconds + "s",</p>
-<p class="p1"><span class="Apple-converted-space">        </span>y: lastTemp</p>
-<p class="p1"><span class="Apple-converted-space">      </span>});</p>
-<p class="p2"><br></p>
-<p class="p1"><span class="Apple-converted-space">      </span>chart.update();</p>
-<p class="p1"><span class="Apple-converted-space">    </span>}</p>
-<p class="p1"><span class="Apple-converted-space">  </span>});</p>
-<p class="p1">}</p>
-<p class="p2"><br></p>
-<p class="p1">function logTemp(temp) {</p>
-<p class="p1"><span class="Apple-converted-space">  </span>data.push({ time: seconds, temp });</p>
-<p class="p2"><br></p>
-<p class="p1"><span class="Apple-converted-space">  </span>chart.data.labels.push(seconds + "s");</p>
-<p class="p1"><span class="Apple-converted-space">  </span>chart.data.datasets[0].data.push(temp);</p>
-<p class="p2"><br></p>
-<p class="p1"><span class="Apple-converted-space">  </span>updateRoR();</p>
-<p class="p1"><span class="Apple-converted-space">  </span>updateDevTime();</p>
-<p class="p2"><br></p>
-<p class="p1"><span class="Apple-converted-space">  </span>chart.update();</p>
-<p class="p1">}</p>
-<p class="p2"><br></p>
-<p class="p1">function updateRoR() {</p>
-<p class="p1"><span class="Apple-converted-space">  </span>if (data.length &lt; 2) return;</p>
-<p class="p2"><br></p>
-<p class="p1"><span class="Apple-converted-space">  </span>let last = data[data.length-1];</p>
-<p class="p1"><span class="Apple-converted-space">  </span>let prev = data[data.length-2];</p>
-<p class="p2"><br></p>
-<p class="p1"><span class="Apple-converted-space">  </span>let ror = (last.temp - prev.temp) / 0.5; // per minute</p>
-<p class="p2"><br></p>
-<p class="p1"><span class="Apple-converted-space">  </span>chart.data.datasets[1].data.push(ror);</p>
-<p class="p2"><br></p>
-<p class="p1"><span class="Apple-converted-space">  </span>document.getElementById("ror").innerText =</p>
-<p class="p1"><span class="Apple-converted-space">    </span>"RoR: " + ror.toFixed(1);</p>
-<p class="p1">}</p>
-<p class="p2"><br></p>
-<p class="p1">function updateDevTime() {</p>
-<p class="p1"><span class="Apple-converted-space">  </span>if (!events.first) return;</p>
-<p class="p2"><br></p>
-<p class="p1"><span class="Apple-converted-space">  </span>let total = seconds;</p>
-<p class="p1"><span class="Apple-converted-space">  </span>let dev = total - events.first;</p>
-<p class="p2"><br></p>
-<p class="p1"><span class="Apple-converted-space">  </span>let percent = (dev / total) * 100;</p>
-<p class="p2"><br></p>
-<p class="p1"><span class="Apple-converted-space">  </span>document.getElementById("devTime").innerText =</p>
-<p class="p1"><span class="Apple-converted-space">    </span>"Development %: " + percent.toFixed(1);</p>
-<p class="p1">}</p>
-<p class="p2"><br></p>
-<p class="p1">function submitManual() {</p>
-<p class="p1"><span class="Apple-converted-space">  </span>let val = parseInt(document.getElementById("manualTemp").value);</p>
-<p class="p1"><span class="Apple-converted-space">  </span>if (!isNaN(val)) logTemp(val);</p>
-<p class="p1">}</p>
-<p class="p2"><br></p>
-<p class="p1">function downloadCSV() {</p>
-<p class="p1"><span class="Apple-converted-space">  </span>let csv = "Time,Temp\n";</p>
-<p class="p1"><span class="Apple-converted-space">  </span>data.forEach(d =&gt; {</p>
-<p class="p1"><span class="Apple-converted-space">    </span>csv += `${d.time},${d.temp}\n`;</p>
-<p class="p1"><span class="Apple-converted-space">  </span>});</p>
-<p class="p2"><br></p>
-<p class="p1"><span class="Apple-converted-space">  </span>let blob = new Blob([csv], { type: 'text/csv' });</p>
-<p class="p1"><span class="Apple-converted-space">  </span>let a = document.createElement("a");</p>
-<p class="p1"><span class="Apple-converted-space">  </span>a.href = URL.createObjectURL(blob);</p>
-<p class="p1"><span class="Apple-converted-space">  </span>a.download = "roast.csv";</p>
-<p class="p1"><span class="Apple-converted-space">  </span>a.click();</p>
-<p class="p1">}</p>
-<p class="p2"><br></p>
-<p class="p1">function listen(cb) {</p>
-<p class="p1"><span class="Apple-converted-space">  </span>const rec = new (window.SpeechRecognition || window.webkitSpeechRecognition)();</p>
-<p class="p1"><span class="Apple-converted-space">  </span>rec.onresult = e =&gt; cb(e.results[0][0].transcript);</p>
-<p class="p1"><span class="Apple-converted-space">  </span>rec.start();</p>
-<p class="p1">}</p>
-<p class="p2"><br></p>
-<p class="p1">function speak(text) {</p>
-<p class="p1"><span class="Apple-converted-space">  </span>speechSynthesis.speak(new SpeechSynthesisUtterance(text));</p>
-<p class="p1">}</p>
-<p class="p2"><br></p>
-<p class="p1">function parseNumber(text) {</p>
-<p class="p1"><span class="Apple-converted-space">  </span>if (text.match(/\d+/)) return parseInt(text.match(/\d+/)[0]);</p>
-<p class="p2"><br></p>
-<p class="p1"><span class="Apple-converted-space">  </span>const map = {</p>
-<p class="p1"><span class="Apple-converted-space">    </span>one:1,two:2,three:3,four:4,five:5,six:6,seven:7,eight:8,nine:9,</p>
-<p class="p1"><span class="Apple-converted-space">    </span>ten:10,twenty:20,thirty:30,forty:40,fifty:50,</p>
-<p class="p1"><span class="Apple-converted-space">    </span>sixty:60,seventy:70,eighty:80,ninety:90,hundred:100</p>
-<p class="p1"><span class="Apple-converted-space">  </span>};</p>
-<p class="p2"><br></p>
-<p class="p1"><span class="Apple-converted-space">  </span>let total = 0;</p>
-<p class="p1"><span class="Apple-converted-space">  </span>text.split(" ").forEach(w =&gt; {</p>
-<p class="p1"><span class="Apple-converted-space">    </span>if (map[w]) {</p>
-<p class="p1"><span class="Apple-converted-space">      </span>if (map[w] === 100) total *= 100;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>else total += map[w];</p>
-<p class="p1"><span class="Apple-converted-space">    </span>}</p>
-<p class="p1"><span class="Apple-converted-space">  </span>});</p>
-<p class="p2"><br></p>
-<p class="p1"><span class="Apple-converted-space">  </span>return total || null;</p>
-<p class="p1">}</p>
-<p class="p1">&lt;/script&gt;</p>
-<p class="p2"><br></p>
-<p class="p1">&lt;/body&gt;</p>
-<p class="p1">&lt;/html&gt;</p>
+
+<h1>Roast Logger v4</h1>
+
+<button onclick="startRoast()">Start</button>
+<button onclick="stopRoast()">Stop</button>
+<button onclick="downloadCSV()">Download CSV</button>
+
+<br>
+<input id="manualTemp" placeholder="Manual temp">
+<button onclick="submitManual()">Submit</button>
+
+<p id="status">Waiting</p>
+
+<div class="stats">
+  <p id="devTime">Development %: --</p>
+  <p id="ror">RoR: --</p>
+</div>
+
+<canvas id="chart"></canvas>
+
+<script>
+let data = [];
+let seconds = 0;
+let timer;
+let listening = false;
+
+let events = {
+  first: null,
+  second: null,
+  yellow: null
+};
+
+let ctx = document.getElementById('chart').getContext('2d');
+
+let chart = new Chart(ctx, {
+  type: 'line',
+  data: {
+    labels: [],
+    datasets: [
+      { label: 'Temp', data: [], tension: 0.2 },
+      { label: 'RoR', data: [], tension: 0.2 },
+      { label: 'Events', data: [], showLine: false, pointRadius: 6 }
+    ]
+  }
+});
+
+function startRoast() {
+  data = [];
+  seconds = 0;
+  events = { first:null, second:null, yellow:null };
+
+  chart.data.labels = [];
+  chart.data.datasets.forEach(d => d.data = []);
+  chart.update();
+
+  timer = setInterval(() => {
+    seconds += 30;
+    ask();
+  }, 30000);
+
+  ask();
+}
+
+function stopRoast() {
+  clearInterval(timer);
+  speak("Roast finished");
+}
+
+function ask() {
+  if (listening) return;
+  listening = true;
+
+  speak("Temperature?");
+  
+  listen(text => {
+    let t = text.toLowerCase();
+
+    detectEvent(t);
+
+    let temp = parseNumber(t);
+    if (temp !== null) logTemp(temp);
+
+    listening = false;
+  });
+}
+
+function detectEvent(text) {
+  if (text.includes("first crack")) confirmEvent("first");
+  if (text.includes("second crack")) confirmEvent("second");
+  if (text.includes("yellow")) confirmEvent("yellow");
+}
+
+function confirmEvent(type) {
+  speak("Confirm " + type + "?");
+  
+  listen(resp => {
+    if (resp.toLowerCase().includes("yes")) {
+      events[type] = seconds;
+
+      let lastTemp = data[data.length-1]?.temp || 0;
+
+      chart.data.datasets[2].data.push({
+        x: seconds + "s",
+        y: lastTemp
+      });
+
+      chart.update();
+    }
+  });
+}
+
+function logTemp(temp) {
+  data.push({ time: seconds, temp });
+
+  chart.data.labels.push(seconds + "s");
+  chart.data.datasets[0].data.push(temp);
+
+  updateRoR();
+  updateDevTime();
+
+  chart.update();
+}
+
+function updateRoR() {
+  if (data.length < 2) return;
+
+  let last = data[data.length-1];
+  let prev = data[data.length-2];
+
+  let ror = (last.temp - prev.temp) / 0.5; // per minute
+
+  chart.data.datasets[1].data.push(ror);
+
+  document.getElementById("ror").innerText =
+    "RoR: " + ror.toFixed(1);
+}
+
+function updateDevTime() {
+  if (!events.first) return;
+
+  let total = seconds;
+  let dev = total - events.first;
+
+  let percent = (dev / total) * 100;
+
+  document.getElementById("devTime").innerText =
+    "Development %: " + percent.toFixed(1);
+}
+
+function submitManual() {
+  let val = parseInt(document.getElementById("manualTemp").value);
+  if (!isNaN(val)) logTemp(val);
+}
+
+function downloadCSV() {
+  let csv = "Time,Temp\n";
+  data.forEach(d => {
+    csv += `${d.time},${d.temp}\n`;
+  });
+
+  let blob = new Blob([csv], { type: 'text/csv' });
+  let a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "roast.csv";
+  a.click();
+}
+
+function listen(cb) {
+  const rec = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+  rec.onresult = e => cb(e.results[0][0].transcript);
+  rec.start();
+}
+
+function speak(text) {
+  speechSynthesis.speak(new SpeechSynthesisUtterance(text));
+}
+
+function parseNumber(text) {
+  if (text.match(/\d+/)) return parseInt(text.match(/\d+/)[0]);
+
+  const map = {
+    one:1,two:2,three:3,four:4,five:5,six:6,seven:7,eight:8,nine:9,
+    ten:10,twenty:20,thirty:30,forty:40,fifty:50,
+    sixty:60,seventy:70,eighty:80,ninety:90,hundred:100
+  };
+
+  let total = 0;
+  text.split(" ").forEach(w => {
+    if (map[w]) {
+      if (map[w] === 100) total *= 100;
+      else total += map[w];
+    }
+  });
+
+  return total || null;
+}
+</script>
+
 </body>
 </html>
