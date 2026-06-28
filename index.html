@@ -15,33 +15,32 @@
 
     h1 { margin: 10px; }
 
+    #status {
+      color: #aaa;
+      margin: 10px;
+    }
+
     #timer {
       font-size: 72px;
       font-weight: bold;
       margin-top: 10px;
     }
 
-    #status {
-      color: #aaa;
-      margin: 5px;
-    }
-
     .row {
       display: flex;
       justify-content: center;
-      gap: 10px;
       flex-wrap: wrap;
+      gap: 10px;
       margin: 10px;
     }
 
     button {
-      font-size: 26px;
+      font-size: 28px;
       padding: 18px 30px;
-      border-radius: 14px;
+      border-radius: 16px;
       border: none;
       min-width: 240px;
       font-weight: bold;
-      cursor: pointer;
     }
 
     .green { background: #1f7a1f; color: white; }
@@ -50,7 +49,6 @@
 
     button:disabled {
       opacity: 0.4;
-      cursor: not-allowed;
     }
 
     #stats {
@@ -73,7 +71,7 @@
 
 <h1>Roast OS 1.0</h1>
 
-<div id="status">Tap "Initialize Voice" to begin</div>
+<div id="status">Tap "Initialize Voice"</div>
 
 <div class="row">
   <button class="gray" onclick="initVoice()">Initialize Voice</button>
@@ -89,7 +87,6 @@
 <div id="stats">
   <div id="temp">Temp: --</div>
   <div id="ror">RoR: --</div>
-  <div id="dev">Dev: --</div>
 </div>
 
 <canvas id="chart"></canvas>
@@ -102,10 +99,9 @@ let listening = false;
 let data = [];
 let seconds = 0;
 let timer;
-
 let startTime;
 
-let events = { first:null };
+// ---------------- CHART ----------------
 
 const ctx = document.getElementById("chart").getContext("2d");
 
@@ -120,8 +116,7 @@ const chart = new Chart(ctx, {
   }
 });
 
-
-// ---------------- INIT VOICE ----------------
+// ---------------- VOICE INIT ----------------
 
 function initVoice() {
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -133,25 +128,37 @@ function initVoice() {
 
   const test = new SpeechRecognition();
   test.lang = "en-US";
+  test.interimResults = false;
+
+  document.getElementById("status").innerText =
+    "Requesting microphone permission...";
 
   test.onstart = () => {
-    document.getElementById("status").innerText = "Voice initializing...";
+    document.getElementById("status").innerText =
+      "Microphone access granted. Initializing...";
   };
 
-  test.onresult = () => {
-    voiceReady = true;
-    document.getElementById("status").innerText = "Voice ready";
-    document.getElementById("startBtn").disabled = false;
-    speak("Voice system ready");
+  // ✅ FIXED: 3-second delay after permission
+  test.onend = () => {
+    document.getElementById("status").innerText =
+      "Voice detected. Preparing system...";
+
+    setTimeout(() => {
+      voiceReady = true;
+      document.getElementById("startBtn").disabled = false;
+
+      document.getElementById("status").innerText = "Voice ready";
+      speak("Voice system ready");
+    }, 3000);
   };
 
-  test.onerror = () => {
-    document.getElementById("status").innerText = "Voice error. Try again.";
+  test.onerror = (e) => {
+    document.getElementById("status").innerText =
+      "Microphone error: " + e.error;
   };
 
   test.start();
 }
-
 
 // ---------------- START / STOP ----------------
 
@@ -179,7 +186,6 @@ function stopRoast() {
   document.getElementById("status").innerText = "Roast stopped";
 }
 
-
 // ---------------- ROAST FLOW ----------------
 
 function askTemperature() {
@@ -192,23 +198,20 @@ function askTemperature() {
   }, 500);
 }
 
-
 function handleSpeech(text) {
   listening = false;
 
   if (!text) return;
 
-  let t = text.toLowerCase();
-
-  let temp = parseNumber(t);
+  let temp = parseNumber(text.toLowerCase());
 
   if (temp !== null) {
     logTemp(temp);
   } else {
-    document.getElementById("status").innerText = "No temp detected: " + text;
+    document.getElementById("status").innerText =
+      "No temp detected: " + text;
   }
 }
-
 
 // ---------------- DATA ----------------
 
@@ -229,7 +232,6 @@ function logTemp(temp) {
   chart.update();
 }
 
-
 // ---------------- RoR ----------------
 
 function updateRoR() {
@@ -239,6 +241,7 @@ function updateRoR() {
   let b = data[data.length - 2];
 
   let dt = (a.time - b.time) / 60;
+
   let ror = (a.temp - b.temp) / dt;
 
   chart.data.datasets[1].data.push(ror);
@@ -246,7 +249,6 @@ function updateRoR() {
   document.getElementById("ror").innerText =
     "RoR: " + ror.toFixed(1);
 }
-
 
 // ---------------- SPEECH ----------------
 
@@ -275,7 +277,6 @@ function listen(cb) {
 function speak(text) {
   speechSynthesis.speak(new SpeechSynthesisUtterance(text));
 }
-
 
 // ---------------- PARSER ----------------
 
