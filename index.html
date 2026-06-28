@@ -1,112 +1,156 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Roast Mode Pro v5.1</title>
+  <title>Roast OS 1.0</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
   <style>
     body {
       margin: 0;
       font-family: Arial;
-      background: #111;
+      background: #0b0b0b;
       color: white;
       text-align: center;
     }
 
-    h1 { margin: 10px 0; }
+    h1 { margin: 10px; }
 
     #timer {
-      font-size: 64px;
+      font-size: 72px;
       font-weight: bold;
+      margin-top: 10px;
     }
 
-    #countdown {
+    #status {
       color: #aaa;
-      margin-bottom: 10px;
-    }
-
-    button, input {
-      font-size: 18px;
-      padding: 10px;
       margin: 5px;
-      border-radius: 8px;
-      border: none;
     }
 
-    button { background: #333; color: white; }
-    button:hover { background: #555; }
+    .row {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin: 10px;
+    }
 
-    .stats {
+    button {
+      font-size: 26px;
+      padding: 18px 30px;
+      border-radius: 14px;
+      border: none;
+      min-width: 240px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    .green { background: #1f7a1f; color: white; }
+    .red { background: #7a1f1f; color: white; }
+    .gray { background: #333; color: white; }
+
+    button:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    #stats {
       display: flex;
       justify-content: space-around;
       margin: 10px;
-      font-size: 16px;
+      font-size: 18px;
     }
 
     canvas {
       max-width: 95%;
       background: #1a1a1a;
       border-radius: 10px;
+      margin-top: 10px;
     }
-
-    #status { color: #aaa; }
   </style>
 </head>
 
 <body>
 
-<h1>Roast Mode Pro</h1>
+<h1>Roast OS 1.0</h1>
+
+<div id="status">Tap "Initialize Voice" to begin</div>
+
+<div class="row">
+  <button class="gray" onclick="initVoice()">Initialize Voice</button>
+</div>
+
+<div class="row">
+  <button id="startBtn" class="green" onclick="startRoast()" disabled>Start Roast</button>
+  <button class="red" onclick="stopRoast()">Stop Roast</button>
+</div>
 
 <div id="timer">00:00</div>
-<div id="countdown">Next reading in: 30s</div>
 
-<button onclick="startRoast()">Start</button>
-<button onclick="stopRoast()">Stop</button>
-<button onclick="downloadCSV()">Export</button>
-
-<br>
-
-<input id="manualTemp" placeholder="Temp">
-<button onclick="submitManual()">Add</button>
-
-<div class="stats">
+<div id="stats">
   <div id="temp">Temp: --</div>
   <div id="ror">RoR: --</div>
   <div id="dev">Dev: --</div>
 </div>
 
-<p id="status">Ready</p>
-
 <canvas id="chart"></canvas>
 
 <script>
-let data = [];
-let seconds = 0;
-let totalSeconds = 0;
 
-let timer;
-let timerInterval;
-let countdownTimer;
-
-let countdown = 30;
-let state = "READY";
+let voiceReady = false;
 let listening = false;
 
-let events = { first:null, second:null, yellow:null };
+let data = [];
+let seconds = 0;
+let timer;
 
-const ctx = document.getElementById('chart').getContext('2d');
+let startTime;
+
+let events = { first:null };
+
+const ctx = document.getElementById("chart").getContext("2d");
 
 const chart = new Chart(ctx, {
-  type: 'line',
+  type: "line",
   data: {
     labels: [],
     datasets: [
-      { label: 'Temp', data: [], tension: 0.25 },
-      { label: 'RoR', data: [], tension: 0.25 },
-      { label: 'Events', data: [], showLine: false, pointRadius: 6 }
+      { label: "Temp", data: [], borderColor: "#ffcc00", tension: 0.3 },
+      { label: "RoR", data: [], borderColor: "#00ccff", tension: 0.3 }
     ]
   }
 });
+
+
+// ---------------- INIT VOICE ----------------
+
+function initVoice() {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+  if (!SpeechRecognition) {
+    alert("Speech Recognition not supported on this browser");
+    return;
+  }
+
+  const test = new SpeechRecognition();
+  test.lang = "en-US";
+
+  test.onstart = () => {
+    document.getElementById("status").innerText = "Voice initializing...";
+  };
+
+  test.onresult = () => {
+    voiceReady = true;
+    document.getElementById("status").innerText = "Voice ready";
+    document.getElementById("startBtn").disabled = false;
+    speak("Voice system ready");
+  };
+
+  test.onerror = () => {
+    document.getElementById("status").innerText = "Voice error. Try again.";
+  };
+
+  test.start();
+}
 
 
 // ---------------- START / STOP ----------------
@@ -114,174 +158,85 @@ const chart = new Chart(ctx, {
 function startRoast() {
   data = [];
   seconds = 0;
-  totalSeconds = 0;
-  countdown = 30;
-  state = "READY";
-  events = { first:null, second:null, yellow:null };
+  startTime = Date.now();
 
   chart.data.labels = [];
   chart.data.datasets.forEach(d => d.data = []);
   chart.update();
 
+  document.getElementById("status").innerText = "Roast running";
+
   timer = setInterval(() => {
-    seconds += 30;
-    ask();
-    resetCountdown();
+    askTemperature();
   }, 30000);
 
-  timerInterval = setInterval(() => {
-    totalSeconds++;
-    updateTimer();
-  }, 1000);
-
-  countdownTimer = setInterval(() => {
-    countdown--;
-    if (countdown <= 0) countdown = 30;
-    updateCountdown();
-  }, 1000);
-
-  ask();
+  askTemperature();
 }
 
 function stopRoast() {
   clearInterval(timer);
-  clearInterval(timerInterval);
-  clearInterval(countdownTimer);
   speak("Roast complete");
-}
-
-
-// ---------------- TIMER UI ----------------
-
-function updateTimer() {
-  let m = Math.floor(totalSeconds / 60);
-  let s = totalSeconds % 60;
-
-  document.getElementById("timer").innerText =
-    String(m).padStart(2,'0') + ":" + String(s).padStart(2,'0');
-}
-
-function updateCountdown() {
-  document.getElementById("countdown").innerText =
-    "Next reading in: " + countdown + "s";
-}
-
-function resetCountdown() {
-  countdown = 30;
-  updateCountdown();
+  document.getElementById("status").innerText = "Roast stopped";
 }
 
 
 // ---------------- ROAST FLOW ----------------
 
-function ask() {
-  if (state !== "READY" || listening) return;
+function askTemperature() {
+  if (!voiceReady || listening) return;
 
-  state = "ASKING";
-
-  speak("Temperature check");
+  speak("Temperature");
 
   setTimeout(() => {
-    if (listening) return;
-
-    state = "LISTENING";
-
     listen(handleSpeech);
-
-    setTimeout(() => {
-      if (state === "LISTENING") {
-        document.getElementById("status").innerText = "No input (skipped)";
-        state = "READY";
-      }
-    }, 8000);
-
-  }, 600);
+  }, 500);
 }
 
-function handleSpeech(text) {
-  state = "PROCESSING";
 
-  if (!text || text.trim().length === 0) {
-    state = "READY";
-    return;
-  }
+function handleSpeech(text) {
+  listening = false;
+
+  if (!text) return;
 
   let t = text.toLowerCase();
 
-  detectEvent(t);
-
   let temp = parseNumber(t);
 
-  if (temp !== null && !isNaN(temp)) {
+  if (temp !== null) {
     logTemp(temp);
   } else {
-    document.getElementById("status").innerText =
-      "No temp detected: " + text;
+    document.getElementById("status").innerText = "No temp detected: " + text;
   }
-
-  state = "READY";
-}
-
-
-// ---------------- EVENTS ----------------
-
-function detectEvent(text) {
-  if (text.includes("first crack")) confirmEvent("first");
-  if (text.includes("second crack")) confirmEvent("second");
-  if (text.includes("yellow")) confirmEvent("yellow");
-}
-
-function confirmEvent(type) {
-  speak("Did you say " + type + "?");
-
-  listen(resp => {
-    if (resp.toLowerCase().includes("yes")) {
-      markEvent(type);
-    }
-  });
-}
-
-function markEvent(type) {
-  events[type] = seconds;
-
-  let lastTemp = data[data.length-1]?.temp || 0;
-
-  chart.data.datasets[2].data.push({
-    x: seconds + "s",
-    y: lastTemp
-  });
-
-  chart.update();
-
-  document.getElementById("status").innerText =
-    type + " marked";
 }
 
 
 // ---------------- DATA ----------------
 
 function logTemp(temp) {
-  data.push({ time: seconds, temp });
 
-  document.getElementById("temp").innerText = "Temp: " + temp;
+  let now = Date.now();
+  let t = Math.floor((now - startTime) / 1000);
 
-  chart.data.labels.push(seconds + "s");
+  data.push({ time: t, temp });
+
+  chart.data.labels.push(t + "s");
   chart.data.datasets[0].data.push(temp);
 
   updateRoR();
-  updateDev();
+
+  document.getElementById("temp").innerText = "Temp: " + temp;
 
   chart.update();
 }
 
 
-// ---------------- ANALYTICS ----------------
+// ---------------- RoR ----------------
 
 function updateRoR() {
   if (data.length < 2) return;
 
-  let a = data[data.length-1];
-  let b = data[data.length-2];
+  let a = data[data.length - 1];
+  let b = data[data.length - 2];
 
   let dt = (a.time - b.time) / 60;
   let ror = (a.temp - b.temp) / dt;
@@ -292,48 +247,15 @@ function updateRoR() {
     "RoR: " + ror.toFixed(1);
 }
 
-function updateDev() {
-  if (!events.first) return;
 
-  let dev = seconds - events.first;
-  let pct = (dev / seconds) * 100;
-
-  document.getElementById("dev").innerText =
-    "Dev: " + pct.toFixed(1) + "%";
-}
-
-
-// ---------------- MANUAL INPUT ----------------
-
-function submitManual() {
-  let v = parseInt(document.getElementById("manualTemp").value);
-  if (!isNaN(v)) logTemp(v);
-}
-
-
-// ---------------- EXPORT ----------------
-
-function downloadCSV() {
-  let csv = "Time,Temp\n";
-  data.forEach(d => csv += `${d.time},${d.temp}\n`);
-
-  let blob = new Blob([csv], { type: 'text/csv' });
-  let a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = "roast.csv";
-  a.click();
-}
-
-
-// ---------------- VOICE ----------------
+// ---------------- SPEECH ----------------
 
 function listen(cb) {
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-  const rec = new SpeechRecognition();
 
+  const rec = new SpeechRecognition();
   rec.lang = "en-US";
   rec.interimResults = false;
-  rec.maxAlternatives = 1;
 
   listening = true;
 
@@ -341,12 +263,10 @@ function listen(cb) {
 
   rec.onerror = () => {
     listening = false;
-    state = "READY";
   };
 
   rec.onend = () => {
     listening = false;
-    state = "READY";
   };
 
   rec.start();
@@ -381,5 +301,6 @@ function parseNumber(text) {
 }
 
 </script>
+
 </body>
 </html>
