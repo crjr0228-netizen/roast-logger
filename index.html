@@ -18,6 +18,7 @@
     #status {
       color: #aaa;
       margin: 10px;
+      font-size: 18px;
     }
 
     #elapsed {
@@ -47,9 +48,7 @@
     .red { background: #7a1f1f; color: white; }
     .gray { background: #333; color: white; }
 
-    button:disabled {
-      opacity: 0.4;
-    }
+    button:disabled { opacity: 0.4; }
 
     #stats {
       display: flex;
@@ -71,7 +70,7 @@
 
 <h1>Roast OS 1.0</h1>
 
-<div id="status">Tap "Initialize Voice"</div>
+<div id="status">Tap Initialize Voice</div>
 
 <div class="row">
   <button class="gray" onclick="initVoice()">Initialize Voice</button>
@@ -117,7 +116,7 @@ const chart = new Chart(ctx, {
   }
 });
 
-// ---------------- INIT VOICE ----------------
+// ---------------- VOICE INIT ----------------
 
 function initVoice() {
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -136,13 +135,10 @@ function initVoice() {
 
   test.onstart = () => {
     document.getElementById("status").innerText =
-      "Microphone access granted. Initializing...";
+      "Microphone access granted...";
   };
 
   test.onend = () => {
-    document.getElementById("status").innerText =
-      "Voice detected. Preparing...";
-
     setTimeout(() => {
       voiceReady = true;
       document.getElementById("startBtn").disabled = false;
@@ -164,7 +160,6 @@ function initVoice() {
 
 function startRoast() {
 
-  // ✅ prevent duplicate intervals
   if (uiTimer) clearInterval(uiTimer);
   if (roastTimer) clearInterval(roastTimer);
 
@@ -177,11 +172,9 @@ function startRoast() {
 
   document.getElementById("status").innerText = "Roast running";
 
-  // ---------------- UI TIMER ----------------
+  // UI timer
   uiTimer = setInterval(() => {
-    let now = Date.now();
-    let t = Math.floor((now - startTime) / 1000);
-
+    let t = Math.floor((Date.now() - startTime) / 1000);
     let m = Math.floor(t / 60);
     let s = t % 60;
 
@@ -189,12 +182,11 @@ function startRoast() {
       String(m).padStart(2, "0") + ":" + String(s).padStart(2, "0");
   }, 1000);
 
-  // ---------------- ROAST TIMER ----------------
+  // roast cycle
   roastTimer = setInterval(() => {
     askTemperature();
   }, 30000);
 
-  // first prompt
   setTimeout(() => {
     askTemperature();
   }, 2000);
@@ -214,16 +206,18 @@ function stopRoast() {
 // ---------------- ROAST FLOW ----------------
 
 function askTemperature() {
+
   if (!voiceReady || listening) return;
 
-  speak("Temperature");
+  document.getElementById("status").innerText = "Listening for temperature...";
 
   setTimeout(() => {
     listen(handleSpeech);
-  }, 500);
+  }, 200);
 }
 
 function handleSpeech(text) {
+
   listening = false;
 
   if (!text) return;
@@ -234,7 +228,7 @@ function handleSpeech(text) {
     logTemp(temp);
   } else {
     document.getElementById("status").innerText =
-      "No temp detected: " + text;
+      "Could not detect temperature: " + text;
   }
 }
 
@@ -242,8 +236,7 @@ function handleSpeech(text) {
 
 function logTemp(temp) {
 
-  let now = Date.now();
-  let t = Math.floor((now - startTime) / 1000);
+  let t = Math.floor((Date.now() - startTime) / 1000);
 
   data.push({ time: t, temp });
 
@@ -279,6 +272,7 @@ function updateRoR() {
 // ---------------- SPEECH ----------------
 
 function listen(cb) {
+
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
   const rec = new SpeechRecognition();
@@ -287,22 +281,35 @@ function listen(cb) {
 
   listening = true;
 
+  rec.onstart = () => {
+    document.getElementById("status").innerText = "Say temperature...";
+  };
+
   rec.onresult = e => cb(e.results[0][0].transcript);
 
-  rec.onerror = () => listening = false;
-  rec.onend = () => listening = false;
+  rec.onerror = () => {
+    listening = false;
+  };
+
+  rec.onend = () => {
+    listening = false;
+  };
 
   rec.start();
 }
 
 function speak(text) {
+  speechSynthesis.cancel(); // prevents queue buildup
   speechSynthesis.speak(new SpeechSynthesisUtterance(text));
 }
 
 // ---------------- PARSER ----------------
 
 function parseNumber(text) {
-  if (text.match(/\d+/)) return parseInt(text.match(/\d+/)[0]);
+
+  if (text.match(/\d+/)) {
+    return parseInt(text.match(/\d+/)[0]);
+  }
 
   const map = {
     one:1,two:2,three:3,four:4,five:5,six:6,seven:7,eight:8,nine:9,
