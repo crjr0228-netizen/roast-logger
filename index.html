@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Roast OS 1.0</title>
+  <title>Roast OS Pro</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
   <style>
@@ -68,7 +68,7 @@
 
 <body>
 
-<h1>Roast OS 1.0</h1>
+<h1>Roast OS Pro</h1>
 
 <div id="status">Tap Initialize Voice</div>
 
@@ -92,7 +92,8 @@
 
 <script>
 
-let voiceReady = false;
+let recognition = null;
+let voiceActive = false;
 let listening = false;
 
 let data = [];
@@ -116,44 +117,64 @@ const chart = new Chart(ctx, {
   }
 });
 
-// ---------------- VOICE INIT ----------------
+// ---------------- VOICE (CHROME SAFE) ----------------
 
 function initVoice() {
+
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
   if (!SpeechRecognition) {
-    alert("Speech Recognition not supported");
+    alert("SpeechRecognition not supported in this browser");
     return;
   }
 
-  const test = new SpeechRecognition();
-  test.lang = "en-US";
-  test.interimResults = false;
+  recognition = new SpeechRecognition();
 
-  document.getElementById("status").innerText =
-    "Requesting microphone permission...";
+  recognition.lang = "en-US";
+  recognition.continuous = true;
+  recognition.interimResults = false;
 
-  test.onstart = () => {
+  recognition.onstart = () => {
     document.getElementById("status").innerText =
-      "Microphone access granted...";
+      "🎤 Listening continuously...";
   };
 
-  test.onend = () => {
-    setTimeout(() => {
-      voiceReady = true;
-      document.getElementById("startBtn").disabled = false;
+  recognition.onresult = (event) => {
+    const text =
+      event.results[event.results.length - 1][0].transcript;
 
-      document.getElementById("status").innerText = "Voice ready";
-      speak("Voice system ready");
-    }, 3000);
+    handleSpeech(text);
   };
 
-  test.onerror = (e) => {
+  recognition.onerror = (e) => {
+    console.log("Speech error:", e.error);
+
     document.getElementById("status").innerText =
-      "Microphone error: " + e.error;
+      "Mic error: " + e.error;
+
+    if (voiceActive) {
+      setTimeout(() => {
+        try { recognition.start(); } catch (e) {}
+      }, 500);
+    }
   };
 
-  test.start();
+  recognition.onend = () => {
+    if (voiceActive) {
+      setTimeout(() => {
+        try { recognition.start(); } catch (e) {}
+      }, 300);
+    }
+  };
+
+  // MUST be user gesture
+  recognition.start();
+  voiceActive = true;
+
+  document.getElementById("startBtn").disabled = false;
+  document.getElementById("status").innerText = "Voice system initialized";
+
+  speak("Voice ready");
 }
 
 // ---------------- START / STOP ----------------
@@ -175,6 +196,7 @@ function startRoast() {
   // UI timer
   uiTimer = setInterval(() => {
     let t = Math.floor((Date.now() - startTime) / 1000);
+
     let m = Math.floor(t / 60);
     let s = t % 60;
 
@@ -182,7 +204,7 @@ function startRoast() {
       String(m).padStart(2, "0") + ":" + String(s).padStart(2, "0");
   }, 1000);
 
-  // roast cycle
+  // roast prompt every 30 sec (still useful as cue)
   roastTimer = setInterval(() => {
     askTemperature();
   }, 30000);
@@ -193,6 +215,14 @@ function startRoast() {
 }
 
 function stopRoast() {
+
+  voiceActive = false;
+
+  if (recognition) {
+    recognition.onend = null;
+    recognition.stop();
+  }
+
   clearInterval(uiTimer);
   clearInterval(roastTimer);
 
@@ -206,29 +236,28 @@ function stopRoast() {
 // ---------------- ROAST FLOW ----------------
 
 function askTemperature() {
-
-  if (!voiceReady || listening) return;
-
-  document.getElementById("status").innerText = "Listening for temperature...";
-
-  setTimeout(() => {
-    listen(handleSpeech);
-  }, 200);
+  document.getElementById("status").innerText =
+    "Say temperature...";
+  speak("Temperature");
 }
+
+// ---------------- SPEECH HANDLER ----------------
 
 function handleSpeech(text) {
 
-  listening = false;
-
   if (!text) return;
 
-  let temp = parseNumber(text.toLowerCase());
+  text = text.toLowerCase();
+
+  const temp = parseNumber(text);
 
   if (temp !== null) {
     logTemp(temp);
+    document.getElementById("status").innerText =
+      "Logged: " + temp;
   } else {
     document.getElementById("status").innerText =
-      "Could not detect temperature: " + text;
+      "Heard: " + text;
   }
 }
 
@@ -269,40 +298,6 @@ function updateRoR() {
     "RoR: " + ror.toFixed(1);
 }
 
-// ---------------- SPEECH ----------------
-
-function listen(cb) {
-
-  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-
-  const rec = new SpeechRecognition();
-  rec.lang = "en-US";
-  rec.interimResults = false;
-
-  listening = true;
-
-  rec.onstart = () => {
-    document.getElementById("status").innerText = "Say temperature...";
-  };
-
-  rec.onresult = e => cb(e.results[0][0].transcript);
-
-  rec.onerror = () => {
-    listening = false;
-  };
-
-  rec.onend = () => {
-    listening = false;
-  };
-
-  rec.start();
-}
-
-function speak(text) {
-  speechSynthesis.cancel(); // prevents queue buildup
-  speechSynthesis.speak(new SpeechSynthesisUtterance(text));
-}
-
 // ---------------- PARSER ----------------
 
 function parseNumber(text) {
@@ -327,6 +322,13 @@ function parseNumber(text) {
   });
 
   return total || null;
+}
+
+// ---------------- SPEAK ----------------
+
+function speak(text) {
+  speechSynthesis.cancel();
+  speechSynthesis.speak(new SpeechSynthesisUtterance(text));
 }
 
 </script>
