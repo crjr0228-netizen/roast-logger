@@ -1,5 +1,6 @@
 let recognition = null;
 let voiceActive = false;
+let voiceReady = false;
 
 let data = [];
 let startTime = 0;
@@ -26,7 +27,7 @@ const chart = new Chart(ctx, {
   }
 });
 
-// ---------------- VOICE ----------------
+// ---------------- VOICE INIT ----------------
 
 function initVoice() {
 
@@ -35,6 +36,7 @@ function initVoice() {
   recognition = new SpeechRecognition();
   recognition.lang = "en-US";
   recognition.continuous = true;
+  recognition.interimResults = false;
 
   recognition.onresult = (event) => {
     const text = event.results[event.results.length - 1][0].transcript;
@@ -48,11 +50,21 @@ function initVoice() {
   recognition.start();
   voiceActive = true;
 
-  document.getElementById("startBtn").disabled = false;
-  document.getElementById("status").innerText = "Voice Ready";
+  document.getElementById("status").innerText = "Initializing voice...";
 }
 
-// ---------------- START ----------------
+// ---------------- READY GATE ----------------
+
+function setVoiceReady() {
+  voiceReady = true;
+
+  document.getElementById("status").innerText = "Ready";
+  speak("Ready");
+
+  document.getElementById("startBtn").disabled = false;
+}
+
+// ---------------- START ROAST ----------------
 
 function startRoast() {
 
@@ -65,10 +77,10 @@ function startRoast() {
   chart.data.datasets.forEach(d => d.data = []);
   chart.update();
 
-  document.getElementById("status").innerText = "Roast Running";
-
   document.getElementById("date").innerText =
     new Date().toLocaleDateString();
+
+  document.getElementById("status").innerText = "Roast Running";
 
   uiTimer = setInterval(updateTimer, 1000);
 
@@ -90,13 +102,18 @@ function updateTimer() {
     String(m).padStart(2, "0") + ":" + String(s).padStart(2, "0");
 }
 
-// ---------------- SPEECH ----------------
+// ---------------- SPEECH HANDLER ----------------
 
 function handleSpeech(text) {
 
   if (!text) return;
 
   text = text.toLowerCase();
+
+  // READY GATE (first real speech unlocks system)
+  if (!voiceReady) {
+    setVoiceReady();
+  }
 
   if (text.includes("first crack")) {
     confirmFirstCrack();
@@ -114,11 +131,15 @@ function confirmFirstCrack() {
   speak("Did you say First Crack?");
 
   setTimeout(() => {
-    listenOnce((resp) => {
-      if (resp.toLowerCase().includes("yes")) {
-        markFirstCrack();
-      }
-    });
+    const r = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+    r.lang = "en-US";
+
+    r.onresult = (e) => {
+      const resp = e.results[0][0].transcript.toLowerCase();
+      if (resp.includes("yes")) markFirstCrack();
+    };
+
+    r.start();
   }, 800);
 }
 
@@ -144,7 +165,7 @@ function markFirstCrack() {
   speak("First Crack recorded");
 }
 
-// ---------------- LOGGING ----------------
+// ---------------- LOG TEMP ----------------
 
 function logTemp(temp) {
 
@@ -181,7 +202,7 @@ function updateRoR() {
     "RoR: " + ror.toFixed(1);
 }
 
-// ---------------- STOP + SUMMARY ----------------
+// ---------------- STOP ----------------
 
 function stopRoast() {
 
@@ -217,21 +238,12 @@ function stopRoast() {
   speak("Roast complete");
 }
 
-// ---------------- VOICE HELPERS ----------------
-
-function listenOnce(cb) {
-  const r = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
-  r.lang = "en-US";
-  r.onresult = e => cb(e.results[0][0].transcript);
-  r.start();
-}
+// ---------------- HELPERS ----------------
 
 function speak(text) {
   speechSynthesis.cancel();
   speechSynthesis.speak(new SpeechSynthesisUtterance(text));
 }
-
-// ---------------- NUMBER PARSER ----------------
 
 function parseNumber(text) {
 
