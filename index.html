@@ -2,9 +2,7 @@
 <html>
 <head>
 <meta charset="utf-8">
-<title>Roast Mode Pro (Final Voice Fix)</title>
-
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<title>Roast Debug - Start Button Test</title>
 
 <style>
 body{
@@ -15,201 +13,36 @@ color:white;
 text-align:center;
 }
 
-h1{margin:10px;}
-
-#status{
-margin:10px;
-padding:8px;
-background:#111;
-border-radius:8px;
-}
-
-#tempDisplay{
-font-size:22px;
-margin:5px;
-color:#ffcc00;
-}
-
-.row{
-display:flex;
-justify-content:center;
-gap:10px;
-flex-wrap:wrap;
-margin:10px;
-}
+h1{margin:20px;}
 
 button{
-font-size:20px;
-padding:14px 18px;
-min-width:170px;
-border-radius:12px;
+font-size:24px;
+padding:20px;
+margin-top:40px;
 border:none;
+border-radius:12px;
+background:#1f7a1f;
+color:white;
 cursor:pointer;
-}
-
-.blue{background:#1f4f7a;color:white;}
-.green{background:#1f7a1f;color:white;}
-.orange{background:#b36b00;color:white;}
-.red{background:#7a1f7a;color:white;}
-
-#timer{
-font-size:40px;
-margin:10px;
-}
-
-canvas{
-max-width:95%;
-background:#111;
-border-radius:10px;
 }
 </style>
 </head>
 
 <body>
 
-<h1>Roast Mode Pro</h1>
+<h1>Roast Debug</h1>
 
-<div id="status">Ready</div>
-<div id="tempDisplay">Temp: --</div>
-
-<div class="row">
-<button class="blue" onclick="initVoice()">Voice</button>
-<button class="green" onclick="startRoast()">Start Roast</button>
-<button class="orange" onclick="markFirstCrack()">First Crack</button>
-<button class="red" onclick="endRoast()">End Roast</button>
-</div>
-
-<div id="timer">00:00</div>
-
-<canvas id="chart"></canvas>
+<button onclick="startRoast()">Start Roast</button>
 
 <script>
 
-/* ================= STATE ================= */
-let recognition;
-let chart;
-
-let sessionActive = false;
-let startTime = 0;
-
-/* ================= INIT ================= */
-window.onload = function () {
-
-chart = new Chart(document.getElementById("chart"), {
-type: "line",
-data: {
-labels: [],
-datasets: [
-{
-label: "Temp",
-data: [],
-borderColor: "#ffcc00",
-fill: false
-},
-{
-label: "RoR",
-data: [],
-borderColor: "#ff4444",
-fill: false
-}
-]
-}
-});
-
-document.getElementById("status").innerText = "Ready";
-};
-
-/* ================= VOICE ================= */
-function initVoice(){
-
-const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-
-recognition = new SR();
-recognition.lang = "en-US";
-recognition.continuous = true;
-
-recognition.onresult = (e) => {
-
-const text = e.results[e.results.length - 1][0].transcript.toLowerCase();
-
-document.getElementById("status").innerText = text;
-
-/* ================= FIXED PARSING ================= */
-
-/* ALWAYS capture ANY number */
-let numbers = text.match(/\d+/g);
-
-/* TEMP TRIGGER */
-if (text.includes("temp") || text.includes("temperature")) {
-if (numbers && numbers.length > 0) {
-commitTemp(parseInt(numbers[numbers.length - 1]));
-}
-}
-
-/* fallback: if user ONLY says number */
-else if (numbers && numbers.length > 0 && sessionActive) {
-commitTemp(parseInt(numbers[numbers.length - 1]));
-}
-
-/* FIRST CRACK */
-if (text.includes("first crack")) {
-markFirstCrack();
-}
-
-/* END */
-if (text.includes("end roast")) {
-endRoast();
-}
-};
-
-recognition.start();
-document.getElementById("status").innerText = "Voice active";
-}
-
-/* ================= START ================= */
 function startRoast(){
-sessionActive = true;
-startTime = Date.now();
-document.getElementById("status").innerText = "Running";
+alert("START ROAST FIRED");
+console.log("Start Roast function ran");
+document.body.style.background = "#003300";
 }
 
-/* ================= TEMP COMMIT ================= */
-function commitTemp(temp){
-
-document.getElementById("tempDisplay").innerText = "Temp: " + temp;
-
-let t = Math.floor((Date.now() - startTime) / 1000);
-
-chart.data.labels.push(t);
-chart.data.datasets[0].data.push(temp);
-
-/* RoR */
-let ror = 0;
-
-let temps = chart.data.datasets[0].data;
-let times = chart.data.labels;
-
-if (temps.length > 1) {
-let dt = times[times.length - 1] - times[times.length - 2];
-let dT = temps[temps.length - 1] - temps[temps.length - 2];
-if (dt !== 0) ror = dT / dt;
-}
-
-chart.data.datasets[1].data.push(ror);
-
-chart.update();
-}
-
-/* ================= FIRST CRACK ================= */
-function markFirstCrack(){
-document.getElementById("status").innerText = "First Crack";
-}
-
-/* ================= END ================= */
-function endRoast(){
-sessionActive = false;
-document.getElementById("status").innerText = "Complete";
-}
+console.log("JS LOADED OK");
 
 </script>
 
