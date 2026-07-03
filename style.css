@@ -11,17 +11,22 @@ h1 { margin: 10px; }
 .row {
   display: flex;
   justify-content: center;
-  gap: 10px;
+  gap: 12px;
   margin: 10px;
 }
 
 button {
   font-size: 22px;
-  padding: 14px 20px;
+  padding: 16px 22px;
   min-width: 180px;
-  border-radius: 10px;
+  border-radius: 12px;
   border: none;
+  cursor: pointer;
 }
+
+.green { background: #1f7a1f; color: white; }
+.orange { background: #b36b00; color: white; }
+.red { background: #7a1f1f; color: white; }
 
 canvas {
   max-width: 95%;
