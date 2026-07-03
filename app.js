@@ -1,17 +1,17 @@
-let recognition = null;
+let recognition;
 let voiceActive = false;
 let voiceReady = false;
 
 let data = [];
 let startTime = 0;
 
-let uiTimer = null;
-let roastTimer = null;
+let uiTimer;
+let roastTimer;
 
 let firstCrackTime = null;
 let stopTime = null;
 
-// ---------------- CHART ----------------
+// ---------------- CHART (FIXED FORMAT) ----------------
 
 const ctx = document.getElementById("chart").getContext("2d");
 
@@ -20,9 +20,24 @@ const chart = new Chart(ctx, {
   data: {
     labels: [],
     datasets: [
-      { label: "Temp", data: [], borderColor: "#ffcc00", tension: 0.3 },
-      { label: "RoR", data: [], borderColor: "#00ccff", tension: 0.3 },
-      { label: "First Crack", data: [], showLine: false, pointRadius: 8 }
+      {
+        label: "Temp",
+        data: [],
+        borderColor: "#ffcc00",
+        tension: 0.3
+      },
+      {
+        label: "RoR",
+        data: [],
+        borderColor: "#00ccff",
+        tension: 0.3
+      },
+      {
+        label: "First Crack",
+        data: [],
+        showLine: false,
+        pointRadius: 8
+      }
     ]
   }
 });
@@ -31,15 +46,15 @@ const chart = new Chart(ctx, {
 
 function initVoice() {
 
-  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 
-  recognition = new SpeechRecognition();
+  recognition = new SR();
   recognition.lang = "en-US";
   recognition.continuous = true;
   recognition.interimResults = false;
 
-  recognition.onresult = (event) => {
-    const text = event.results[event.results.length - 1][0].transcript;
+  recognition.onresult = (e) => {
+    const text = e.results[e.results.length - 1][0].transcript;
     handleSpeech(text);
   };
 
@@ -50,27 +65,26 @@ function initVoice() {
   recognition.start();
   voiceActive = true;
 
-  document.getElementById("status").innerText = "Initializing voice...";
+  document.getElementById("status").innerText = "Voice initializing...";
 }
 
-// ---------------- READY GATE ----------------
+// ---------------- FIXED READY GATE ----------------
 
 function setVoiceReady() {
-  voiceReady = true;
+  if (voiceReady) return;
 
+  voiceReady = true;
   document.getElementById("status").innerText = "Ready";
   speak("Ready");
-
   document.getElementById("startBtn").disabled = false;
 }
 
-// ---------------- START ROAST ----------------
+// ---------------- START ROAST (FIXED SPEECH TIMING) ----------------
 
 function startRoast() {
 
   data = [];
   startTime = Date.now();
-
   firstCrackTime = null;
 
   chart.data.labels = [];
@@ -84,11 +98,14 @@ function startRoast() {
 
   uiTimer = setInterval(updateTimer, 1000);
 
+  // IMPORTANT: delay speech slightly after user gesture
+  setTimeout(() => {
+    speak("Temperature");
+  }, 800);
+
   roastTimer = setInterval(() => {
     speak("Temperature");
   }, 30000);
-
-  setTimeout(() => speak("Temperature"), 2000);
 }
 
 // ---------------- TIMER ----------------
@@ -102,7 +119,7 @@ function updateTimer() {
     String(m).padStart(2, "0") + ":" + String(s).padStart(2, "0");
 }
 
-// ---------------- SPEECH HANDLER ----------------
+// ---------------- SPEECH ----------------
 
 function handleSpeech(text) {
 
@@ -110,10 +127,7 @@ function handleSpeech(text) {
 
   text = text.toLowerCase();
 
-  // READY GATE (first real speech unlocks system)
-  if (!voiceReady) {
-    setVoiceReady();
-  }
+  if (!voiceReady) setVoiceReady();
 
   if (text.includes("first crack")) {
     confirmFirstCrack();
@@ -121,11 +135,10 @@ function handleSpeech(text) {
   }
 
   const temp = parseNumber(text);
-
   if (temp !== null) logTemp(temp);
 }
 
-// ---------------- FIRST CRACK ----------------
+// ---------------- FIXED FIRST CRACK ----------------
 
 function confirmFirstCrack() {
   speak("Did you say First Crack?");
@@ -155,7 +168,7 @@ function markFirstCrack() {
 
   chart.data.datasets[2].data.push({
     x: sec + "s",
-    y: data[data.length - 1]?.temp || 0
+    y: data.length ? data[data.length - 1].temp : 0
   });
 
   document.getElementById("fcTime").innerText = sec + " sec";
@@ -165,7 +178,7 @@ function markFirstCrack() {
   speak("First Crack recorded");
 }
 
-// ---------------- LOG TEMP ----------------
+// ---------------- FIXED CHARTING ----------------
 
 function logTemp(temp) {
 
@@ -227,14 +240,6 @@ function stopRoast() {
   const pct = firstCrackTime ? ((dev / total) * 100).toFixed(1) : "--";
   document.getElementById("devPct").innerText = pct + "%";
 
-  const green = parseFloat(document.getElementById("green").value);
-  const roast = parseFloat(document.getElementById("roast").value);
-
-  if (!isNaN(green) && !isNaN(roast)) {
-    const loss = ((green - roast) / green) * 100;
-    document.getElementById("loss").innerText = loss.toFixed(1) + "%";
-  }
-
   speak("Roast complete");
 }
 
@@ -250,7 +255,8 @@ function parseNumber(text) {
   if (text.match(/\d+/)) return parseInt(text.match(/\d+/)[0]);
 
   const map = {
-    one:1,two:2,three:3,four:4,five:5,six:6,seven:7,eight:8,nine:9,
+    one:1,two:2,three:3,four:4,five:5,
+    six:6,seven:7,eight:8,nine:9,
     ten:10,twenty:20,thirty:30,forty:40,fifty:50
   };
 
