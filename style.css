@@ -42,6 +42,12 @@ button {
 .orange { background: #b36b00; color: white; }
 .gray { background: #333; color: white; }
 
+button:disabled {
+  background: #555 !important;
+  color: #999 !important;
+  opacity: 0.6;
+}
+
 .stats {
   display: flex;
   justify-content: space-around;
