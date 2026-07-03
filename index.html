@@ -14,9 +14,7 @@
       text-align: center;
     }
 
-    h1 {
-      margin: 10px;
-    }
+    h1 { margin: 10px; }
 
     .row {
       display: flex;
@@ -61,25 +59,27 @@
       min-height: 20px;
     }
 
+    /* ✅ FIXED: spacing + usability improvement */
     .meta {
       display: grid;
       grid-template-columns: repeat(2, 1fr);
-      gap: 12px;
-      max-width: 520px;
-      margin: 15px auto;
-      padding: 10px;
+      gap: 14px;              /* more separation */
+      max-width: 560px;
+      margin: 20px auto;
+      padding: 15px;
       background: #111;
-      border-radius: 10px;
+      border-radius: 12px;
     }
 
     .meta input {
       width: 100%;
-      padding: 10px;
-      font-size: 14px;
-      border-radius: 8px;
+      padding: 14px;         /* bigger touch targets */
+      font-size: 15px;
+      border-radius: 10px;
       border: none;
       background: #1b1b1b;
       color: white;
+      box-sizing: border-box;
     }
   </style>
 </head>
@@ -101,7 +101,7 @@
 
 <div id="devStrip">Waiting for First Crack...</div>
 
-<!-- METADATA -->
+<!-- INPUTS -->
 <div class="meta">
   <input id="bean" placeholder="Bean Type">
   <input id="date" placeholder="Date">
@@ -120,24 +120,11 @@
 let startTime = 0;
 let firstCrackTime = null;
 let dropTime = null;
-
-let recognition = null;
-let voiceReady = false;
 let roastInterval = null;
 
-/* auto date */
+/* date auto-fill */
 document.getElementById("date").value =
   new Date().toLocaleDateString();
-
-/* WAKE LOCK (optional) */
-let wakeLock = null;
-async function keepAwake() {
-  try {
-    if ('wakeLock' in navigator) {
-      wakeLock = await navigator.wakeLock.request('screen');
-    }
-  } catch (e) {}
-}
 
 /* CHART */
 const ctx = document.getElementById("chart").getContext("2d");
@@ -155,51 +142,30 @@ const chart = new Chart(ctx, {
   }
 });
 
-/* VOICE */
-function initVoice() {
-  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SR) return alert("Speech not supported");
-
-  recognition = new SR();
-  recognition.lang = "en-US";
-  recognition.interimResults = false;
-
-  recognition.onresult = (e) => {
-    const text = e.results[0][0].transcript.toLowerCase();
-
-    if (text.includes("first crack")) {
-      markFirstCrack();
-    }
-
-    const m = text.match(/\d+/);
-    if (m && startTime) logTemp(parseInt(m[0]));
-  };
-
-  recognition.onend = () => {
-    if (voiceReady) recognition.start();
-  };
-
-  recognition.start();
-  voiceReady = true;
-
-  document.getElementById("devStrip").innerText = "Voice Ready";
-}
-
-/* START */
+/* SAFE START (FIXED) */
 function startRoast() {
-  keepAwake();
+  try {
+    startTime = Date.now();
+    firstCrackTime = null;
+    dropTime = null;
 
-  startTime = Date.now();
-  firstCrackTime = null;
-  dropTime = null;
+    chart.data.labels = [];
+    chart.data.datasets[0].data = [];
+    chart.update();
 
-  chart.data.labels = [];
-  chart.data.datasets[0].data = [];
-  chart.update();
+    clearInterval(roastInterval);
 
-  roastInterval = setInterval(() => {
-    speak("Temperature check");
-  }, 30000);
+    roastInterval = setInterval(() => {
+      speak("Temperature check");
+    }, 30000);
+
+    document.getElementById("devStrip").innerText =
+      "Roast Started";
+
+  } catch (err) {
+    console.error("Start Roast error:", err);
+    alert("Start Roast failed (check console)");
+  }
 }
 
 /* FIRST CRACK */
@@ -247,7 +213,7 @@ function updateDevStrip() {
     ).join(" | ");
 }
 
-/* TEMP */
+/* TEMP LOG (safe) */
 function logTemp(temp) {
   const t = (Date.now() - startTime) / 1000;
 
@@ -268,9 +234,11 @@ function updateWeightLoss() {
 }
 
 /* SPEAK */
-function speak(t) {
-  speechSynthesis.cancel();
-  speechSynthesis.speak(new SpeechSynthesisUtterance(t));
+function speak(text) {
+  try {
+    speechSynthesis.cancel();
+    speechSynthesis.speak(new SpeechSynthesisUtterance(text));
+  } catch (e) {}
 }
 
 /* FORMAT */
