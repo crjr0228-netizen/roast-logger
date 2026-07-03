@@ -1,24 +1,27 @@
 <!DOCTYPE html>
 <html>
 <head>
+  <meta charset="utf-8">
   <title>Roast Mode Pro</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
   <style>
     body {
       margin: 0;
-      font-family: Arial;
+      font-family: Arial, sans-serif;
       background: #0b0b0b;
       color: white;
       text-align: center;
     }
 
-    h1 { margin: 10px; }
+    h1 {
+      margin: 10px;
+    }
 
     .row {
       display: flex;
-      justify-content: center;
       flex-wrap: wrap;
+      justify-content: center;
       gap: 10px;
       margin: 10px;
     }
@@ -37,6 +40,11 @@
     .red { background: #7a1f1f; color: white; }
     .blue { background: #1f4f7a; color: white; }
 
+    #timer {
+      font-size: 40px;
+      margin: 10px;
+    }
+
     canvas {
       max-width: 95%;
       background: #111;
@@ -50,28 +58,28 @@
       border-radius: 8px;
       font-size: 14px;
       color: #ddd;
+      min-height: 20px;
     }
 
     .meta {
       display: grid;
       grid-template-columns: repeat(2, 1fr);
-      gap: 6px;
-      max-width: 500px;
-      margin: 10px auto;
-      text-align: left;
+      gap: 12px;
+      max-width: 520px;
+      margin: 15px auto;
+      padding: 10px;
+      background: #111;
+      border-radius: 10px;
     }
 
     .meta input {
       width: 100%;
-      padding: 8px;
+      padding: 10px;
       font-size: 14px;
-      border-radius: 6px;
+      border-radius: 8px;
       border: none;
-    }
-
-    #timer {
-      font-size: 40px;
-      margin: 10px;
+      background: #1b1b1b;
+      color: white;
     }
   </style>
 </head>
@@ -93,7 +101,7 @@
 
 <div id="devStrip">Waiting for First Crack...</div>
 
-<!-- 🔥 RESTORED METADATA PANEL -->
+<!-- METADATA -->
 <div class="meta">
   <input id="bean" placeholder="Bean Type">
   <input id="date" placeholder="Date">
@@ -117,13 +125,21 @@ let recognition = null;
 let voiceReady = false;
 let roastInterval = null;
 
-// auto-fill date
+/* auto date */
 document.getElementById("date").value =
   new Date().toLocaleDateString();
 
+/* WAKE LOCK (optional) */
+let wakeLock = null;
+async function keepAwake() {
+  try {
+    if ('wakeLock' in navigator) {
+      wakeLock = await navigator.wakeLock.request('screen');
+    }
+  } catch (e) {}
+}
 
-// ---------------- CHART ----------------
-
+/* CHART */
 const ctx = document.getElementById("chart").getContext("2d");
 
 const chart = new Chart(ctx, {
@@ -139,12 +155,9 @@ const chart = new Chart(ctx, {
   }
 });
 
-
-// ---------------- VOICE ----------------
-
+/* VOICE */
 function initVoice() {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-
   if (!SR) return alert("Speech not supported");
 
   recognition = new SR();
@@ -162,17 +175,20 @@ function initVoice() {
     if (m && startTime) logTemp(parseInt(m[0]));
   };
 
+  recognition.onend = () => {
+    if (voiceReady) recognition.start();
+  };
+
   recognition.start();
   voiceReady = true;
 
-  document.getElementById("devStrip").innerText =
-    "Voice Ready";
+  document.getElementById("devStrip").innerText = "Voice Ready";
 }
 
-
-// ---------------- START ----------------
-
+/* START */
 function startRoast() {
+  keepAwake();
+
   startTime = Date.now();
   firstCrackTime = null;
   dropTime = null;
@@ -186,9 +202,7 @@ function startRoast() {
   }, 30000);
 }
 
-
-// ---------------- FIRST CRACK ----------------
-
+/* FIRST CRACK */
 function markFirstCrack() {
   if (!startTime) return;
 
@@ -200,9 +214,7 @@ function markFirstCrack() {
   updateDevStrip();
 }
 
-
-// ---------------- DROP ----------------
-
+/* DROP */
 function stopRoast() {
   dropTime = Date.now();
 
@@ -221,9 +233,7 @@ function stopRoast() {
   updateDevStrip();
 }
 
-
-// ---------------- DEV STRIP ----------------
-
+/* DEV STRIP */
 function updateDevStrip() {
   if (!firstCrackTime) return;
 
@@ -237,9 +247,7 @@ function updateDevStrip() {
     ).join(" | ");
 }
 
-
-// ---------------- TEMP ----------------
-
+/* TEMP */
 function logTemp(temp) {
   const t = (Date.now() - startTime) / 1000;
 
@@ -248,35 +256,27 @@ function logTemp(temp) {
   chart.update();
 }
 
-
-// ---------------- WEIGHT LOSS ----------------
-
+/* WEIGHT LOSS */
 function updateWeightLoss() {
-  const green = parseFloat(document.getElementById("green").value);
-  const roast = parseFloat(document.getElementById("roast").value);
+  const g = parseFloat(document.getElementById("green").value);
+  const r = parseFloat(document.getElementById("roast").value);
 
-  if (!green || !roast) return;
+  if (!g || !r) return;
 
-  const loss = ((green - roast) / green) * 100;
-
-  document.getElementById("loss").value =
-    loss.toFixed(1);
+  const loss = ((g - r) / g) * 100;
+  document.getElementById("loss").value = loss.toFixed(1);
 }
 
-
-// ---------------- SPEAK ----------------
-
+/* SPEAK */
 function speak(t) {
   speechSynthesis.cancel();
   speechSynthesis.speak(new SpeechSynthesisUtterance(t));
 }
 
-
-// ---------------- FORMAT ----------------
-
+/* FORMAT */
 function format(sec) {
   sec = Math.floor(sec);
-  return `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2,"0")}`;
+  return `${Math.floor(sec/60)}:${String(sec%60).padStart(2,"0")}`;
 }
 </script>
 
