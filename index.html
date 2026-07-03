@@ -1,25 +1,18 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Roast Logger Pro</title>
+  <title>Roast Mode Pro</title>
   <link rel="stylesheet" href="style.css">
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 
 <body>
 
-<h1>Roast Logger Pro</h1>
-
-<div id="status">Tap Initialize Voice</div>
+<h1>Roast Mode Pro</h1>
 
 <div class="row">
-  <button onclick="initVoice()" class="gray">Initialize Voice</button>
-</div>
-
-<div class="row">
-  <button id="startBtn" onclick="startRoast()" class="green" disabled>Start Roast</button>
-  <button onclick="markFirstCrackManual()" class="orange">First Crack</button>
-  <button onclick="stopRoast()" class="red">Stop Roast</button>
+  <button onclick="startRoast()">Start</button>
+  <button onclick="markFirstCrack()">First Crack</button>
+  <button onclick="stopRoast()">Drop</button>
 </div>
 
 <div id="timer">00:00</div>
@@ -29,13 +22,12 @@
 <div id="devStrip">Waiting for First Crack...</div>
 
 <div class="summary">
-  <div>📅 Date: <span id="date">--</span></div>
-  <div>🌋 First Crack: <span id="fcTime">--</span></div>
-  <div>⏳ Total Time: <span id="totalTime">--</span></div>
-  <div>🔥 Dev Time: <span id="devTime">--</span></div>
-  <div>📊 Dev %: <span id="devPct">--</span></div>
+  <div>First Crack: <span id="fc">--</span></div>
+  <div>Drop: <span id="drop">--</span></div>
+  <div>Dev Time: <span id="dev">--</span></div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="app.js"></script>
 
 </body>
