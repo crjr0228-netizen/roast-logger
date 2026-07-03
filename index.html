@@ -2,48 +2,30 @@
 <html>
 <head>
 <meta charset="utf-8">
-<title>Roast Mode Pro (v6)</title>
+<title>Roast Mode Pro (v7)</title>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <style>
-body {
-  margin:0;
-  font-family:Arial;
-  background:#0b0b0b;
-  color:white;
-  text-align:center;
+body{
+margin:0;
+font-family:Arial;
+background:#0b0b0b;
+color:white;
+text-align:center;
 }
 
-h1 { margin:10px; }
+h1{margin:10px;}
+#version{color:#888;font-size:14px;}
+#status{margin:8px;padding:8px;background:#111;border-radius:8px;}
 
-#version {
-  font-size:14px;
-  color:#888;
-}
-
-#status {
-  margin:8px;
-  padding:8px;
-  background:#111;
-  border-radius:8px;
-}
-
-.row {
-  display:flex;
-  justify-content:center;
-  flex-wrap:wrap;
-  gap:10px;
-  margin:10px;
-}
-
-button {
-  font-size:20px;
-  padding:14px 20px;
-  min-width:170px;
-  border:none;
-  border-radius:12px;
-  cursor:pointer;
+button{
+font-size:20px;
+padding:14px 18px;
+min-width:170px;
+border:none;
+border-radius:12px;
+cursor:pointer;
 }
 
 .green{background:#1f7a1f;color:white;}
@@ -51,51 +33,25 @@ button {
 .red{background:#7a1f1f;color:white;}
 .blue{background:#1f4f7a;color:white;}
 
-#timer {
-  font-size:40px;
-}
+.row{display:flex;justify-content:center;flex-wrap:wrap;gap:10px;margin:10px;}
 
-canvas {
-  max-width:95%;
-  background:#111;
-  border-radius:10px;
-}
+#timer{font-size:40px;}
 
-#timeline {
-  margin:15px auto;
-  max-width:600px;
-  font-size:14px;
-  color:#bbb;
-  line-height:1.6;
-}
+canvas{max-width:95%;background:#111;border-radius:10px;}
 
-.meta {
-  display:grid;
-  grid-template-columns:1fr 1fr;
-  gap:10px;
-  max-width:550px;
-  margin:20px auto;
-}
-
-input {
-  padding:10px;
-  border-radius:8px;
-  border:none;
-  background:#1b1b1b;
-  color:white;
-}
+#timeline{margin:15px;color:#bbb;font-size:14px;}
 </style>
 </head>
 
 <body>
 
 <h1>Roast Mode Pro</h1>
-<div id="version">v6</div>
+<div id="version">v7</div>
 
 <div id="status">Ready</div>
 
 <div class="row">
-<button class="blue" onclick="initVoice()">Voice Init</button>
+<button class="blue" onclick="initVoice()">Voice</button>
 <button class="green" onclick="startRoast()">Start Roast</button>
 <button class="orange" onclick="markFirstCrack()">First Crack</button>
 <button class="red" onclick="endRoast()">End Roast</button>
@@ -107,39 +63,17 @@ input {
 
 <div id="timeline"></div>
 
-<div class="meta">
-<input id="bean" placeholder="Bean Type">
-<input id="date" placeholder="Date">
-<input id="green" placeholder="Green Weight">
-<input id="roast" placeholder="Roast Weight">
-<input id="loss" placeholder="Weight Loss %" disabled>
-</div>
-
-<div>
-FC: <span id="fc">--</span><br>
-Dev Time: <span id="dev">--</span><br>
-Dev %: <span id="devPct">--</span>
-</div>
-
 <script>
 
 let startTime=0;
-let firstCrackTime=null;
+let fcTime=null;
 let endTime=null;
+let tempInterval=null;
 let chart=null;
-let timer=null;
-let tempInputStep=true;
-
-/* CLOCK INPUT PROMPT FIX */
-function askStartTemp(){
-  const t = prompt("Enter starting temperature:");
-  return parseFloat(t || 0);
-}
+let roastTemp=0;
 
 /* INIT */
 window.onload=function(){
-document.getElementById("date").value=new Date().toLocaleDateString();
-
 chart=new Chart(
 document.getElementById("chart"),
 {
@@ -147,13 +81,39 @@ type:"line",
 data:{labels:[],datasets:[{data:[],borderColor:"#ffcc00"}]}
 }
 );
-
+document.getElementById("status").innerText="Ready";
 };
+
+/* TIMER SPEECH FIX */
+function speak(msg){
+speechSynthesis.cancel();
+speechSynthesis.speak(new SpeechSynthesisUtterance(msg));
+}
+
+/* START ROAST */
+function startRoast(){
+
+roastTemp=parseFloat(prompt("Enter starting temperature:"));
+
+startTime=Date.now();
+fcTime=null;
+endTime=null;
+
+startTimer();
+
+clearInterval(tempInterval);
+tempInterval=setInterval(()=>{
+speak("Current temperature?");
+},30000);
+
+speak("Roast started at "+roastTemp+" degrees");
+
+document.getElementById("status").innerText="Running";
+}
 
 /* TIMER */
 function startTimer(){
-clearInterval(timer);
-timer=setInterval(()=>{
+setInterval(()=>{
 if(!startTime)return;
 let s=Math.floor((Date.now()-startTime)/1000);
 document.getElementById("timer").innerText=
@@ -161,104 +121,38 @@ Math.floor(s/60)+":"+String(s%60).padStart(2,"0");
 },1000);
 }
 
-/* VOICE (must be button triggered) */
-function initVoice(){
-const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
-if(!SR)return alert("No speech");
-
-const r=new SR();
-r.lang="en-US";
-
-r.onresult=(e)=>{
-const text=e.results[0][0].transcript.toLowerCase();
-document.getElementById("status").innerText=text;
-if(text.includes("first crack"))markFirstCrack();
-};
-
-r.start();
-}
-
-/* START ROAST */
-function startRoast(){
-
-const temp=askStartTemp(); // RESTORED PROMPT FLOW
-
-startTime=Date.now();
-firstCrackTime=null;
-endTime=null;
-
-chart.data.labels=[];
-chart.data.datasets[0].data=[];
-chart.update();
-
-startTimer();
-
-speak("Roast started at " + temp + " degrees");
-
-document.getElementById("status").innerText="Running";
-}
-
 /* FIRST CRACK */
 function markFirstCrack(){
-if(!startTime)return;
-firstCrackTime=Date.now();
-
-let fc=(firstCrackTime-startTime)/1000;
-
-document.getElementById("fc").innerText=format(fc);
-
+fcTime=Date.now();
+document.getElementById("status").innerText="First Crack";
 updateTimeline();
 }
 
-/* END ROAST */
+/* END */
 function endRoast(){
 endTime=Date.now();
-
-let total=(endTime-startTime)/1000;
-let dev=firstCrackTime?(endTime-firstCrackTime)/1000:0;
-
-document.getElementById("dev").innerText=format(dev);
-
-document.getElementById("devPct").innerText=
-firstCrackTime?((dev/total)*100).toFixed(1)+"%":"--";
-
-updateWeightLoss();
 updateTimeline();
-
 speak("Roast complete");
 }
 
-/* TIMELINE RESTORED */
+/* TIMELINE RESTORED PROPERLY */
 function updateTimeline(){
-if(!firstCrackTime)return;
 
-let devSec=((endTime||Date.now())-firstCrackTime)/1000;
+if(!fcTime||!endTime)return;
 
-const marks=[15,17.5,20,22.5,25];
+let dev=(endTime-fcTime)/1000;
+
+let marks=[15,17.5,20,22.5,25];
 
 document.getElementById("timeline").innerHTML=
 "<b>Development Timeline</b><br>"+
 marks.map(p=>{
-let t=(p/100)*devSec;
+let t=(p/100)*dev;
 return p+"% → "+format(t);
 }).join("<br>");
 }
 
-/* TEMP */
-function speak(t){
-try{
-speechSynthesis.cancel();
-speechSynthesis.speak(new SpeechSynthesisUtterance(t));
-}catch(e){}
-}
-
-function updateWeightLoss(){
-let g=parseFloat(document.getElementById("green").value);
-let r=parseFloat(document.getElementById("roast").value);
-if(!g||!r)return;
-document.getElementById("loss").value=((g-r)/g*100).toFixed(1);
-}
-
+/* FORMAT */
 function format(s){
 s=Math.floor(s);
 return Math.floor(s/60)+":"+String(s%60).padStart(2,"0");
