@@ -24,32 +24,21 @@
 
 <div id="timer">00:00</div>
 
-<div class="stats">
-  <div id="temp">Temp: --</div>
-  <div id="ror">RoR: --</div>
-</div>
-
 <canvas id="chart"></canvas>
 
-<!-- Dev strip (original-style display) -->
-<div id="devStrip"></div>
+<div id="devStrip">Waiting for First Crack...</div>
 
-<div id="summary">
-  <h2>Roast Summary</h2>
+<div class="stats">
+  <div>Temp: <span id="temp">--</span></div>
+  <div>RoR: <span id="ror">--</span></div>
+</div>
 
-  <div class="grid">
-    <div>📅 Date: <span id="date">--</span></div>
-    <div>☕ Bean: <input id="bean"></div>
-    <div>🌱 Green Weight (g): <input id="green"></div>
-    <div>🔥 Roast Weight (g): <input id="roast"></div>
-
-    <div>📉 Weight Loss: <span id="loss">--</span></div>
-    <div>⏱ Dev %: <span id="devPct">--</span></div>
-
-    <div>🌋 First Crack: <span id="fcTime">--</span></div>
-    <div>⏳ Total Time: <span id="totalTime">--</span></div>
-    <div>🔥 Dev Time: <span id="devTime">--</span></div>
-  </div>
+<div class="summary">
+  <div>📅 Date: <span id="date">--</span></div>
+  <div>🌋 First Crack: <span id="fcTime">--</span></div>
+  <div>⏳ Total Time: <span id="totalTime">--</span></div>
+  <div>🔥 Dev Time: <span id="devTime">--</span></div>
+  <div>📊 Dev %: <span id="devPct">--</span></div>
 </div>
 
 <script src="app.js"></script>
