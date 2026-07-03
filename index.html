@@ -2,6 +2,7 @@
 <html>
 <head>
   <title>Roast Mode Pro</title>
+
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
   <style>
@@ -48,7 +49,6 @@
       border-radius: 8px;
       font-size: 14px;
       color: #ddd;
-      min-height: 20px;
     }
   </style>
 </head>
@@ -80,22 +80,36 @@ let startTime = 0;
 let firstCrackTime = null;
 let dropTime = null;
 
-const ctx = document.getElementById("chart").getContext("2d");
+let chart;
 
-const chart = new Chart(ctx, {
-  type: "line",
-  data: {
-    labels: [],
-    datasets: [{
-      label: "Temp",
-      data: [],
-      borderColor: "#ffcc00",
-      tension: 0.3
-    }]
+// 🔥 WAIT FOR DOM SAFELY
+window.onload = function () {
+
+  const canvas = document.getElementById("chart");
+
+  if (!canvas) {
+    console.error("Canvas missing");
+    return;
   }
-});
 
-// START
+  const ctx = canvas.getContext("2d");
+
+  chart = new Chart(ctx, {
+    type: "line",
+    data: {
+      labels: [],
+      datasets: [{
+        label: "Temp",
+        data: [],
+        borderColor: "#ffcc00",
+        tension: 0.3
+      }]
+    }
+  });
+};
+
+// ---------------- START ----------------
+
 function startRoast() {
   startTime = Date.now();
   firstCrackTime = null;
@@ -109,8 +123,11 @@ function startRoast() {
     "Waiting for First Crack...";
 }
 
-// FIRST CRACK
+// ---------------- FIRST CRACK ----------------
+
 function markFirstCrack() {
+  if (!startTime) return;
+
   firstCrackTime = Date.now();
 
   const fc = (firstCrackTime - startTime) / 1000;
@@ -119,7 +136,8 @@ function markFirstCrack() {
   updateDevStrip();
 }
 
-// STOP
+// ---------------- STOP ----------------
+
 function stopRoast() {
   dropTime = Date.now();
 
@@ -135,7 +153,8 @@ function stopRoast() {
   updateDevStrip();
 }
 
-// 🔥 DEV STRIP (CORRECT + SIMPLE + RELIABLE)
+// ---------------- 🔥 DEV STRIP (STABLE) ----------------
+
 function updateDevStrip() {
   if (!firstCrackTime) return;
 
@@ -144,18 +163,25 @@ function updateDevStrip() {
   const milestones = [15, 17.5, 20, 22.5, 25];
 
   document.getElementById("devStrip").innerText =
-    milestones.map(p => `${p}% (${format((p / 100) * devSec)})`).join(" | ");
+    milestones.map(p =>
+      `${p}% (${format((p / 100) * devSec)})`
+    ).join(" | ");
 }
 
-// OPTIONAL TEMP TEST (click to simulate data)
+// ---------------- TEMP TEST ----------------
+
+// click anywhere to simulate data so chart proves it works
 document.body.addEventListener("click", () => {
+  if (!chart || !startTime) return;
+
   const t = (Date.now() - startTime) / 1000;
-  if (startTime) {
-    chart.data.labels.push(Math.floor(t));
-    chart.data.datasets[0].data.push(200 + Math.random() * 20);
-    chart.update();
-  }
+
+  chart.data.labels.push(Math.floor(t));
+  chart.data.datasets[0].data.push(180 + Math.random() * 30);
+  chart.update();
 });
+
+// ---------------- HELPERS ----------------
 
 function format(sec) {
   sec = Math.floor(sec);
