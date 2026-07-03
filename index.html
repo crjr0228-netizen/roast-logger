@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Roast Mode Pro (v3)</title>
+  <title>Roast Mode Pro (v4)</title>
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
@@ -21,7 +21,7 @@
 
     #version {
       font-size: 14px;
-      color: #aaa;
+      color: #888;
       margin-bottom: 5px;
     }
 
@@ -31,7 +31,11 @@
       padding: 8px;
       background: #111;
       border-radius: 8px;
-      color: #ddd;
+    }
+
+    #clock {
+      font-size: 14px;
+      color: #aaa;
     }
 
     .row {
@@ -94,8 +98,9 @@
 <body>
 
 <h1>Roast Mode Pro</h1>
-<div id="version">v3</div>
+<div id="version">v4</div>
 
+<div id="clock"></div>
 <div id="status">Loading...</div>
 
 <div class="row">
@@ -124,94 +129,76 @@
 </div>
 
 <script>
-/* =========================
-   STATE
-========================= */
 let startTime = 0;
 let firstCrackTime = null;
 let dropTime = null;
 let recognition = null;
 let voiceReady = false;
 let roastInterval = null;
+let timerInterval = null;
 let chart = null;
 
-/* =========================
-   STATUS
-========================= */
-function setStatus(msg) {
-  document.getElementById("status").innerText = msg;
-  console.log(msg);
-}
+/* ---------------- CLOCK ---------------- */
+setInterval(() => {
+  document.getElementById("clock").innerText =
+    "Clock: " + new Date().toLocaleTimeString();
+}, 1000);
 
-/* =========================
-   INIT (SAFE BOOT)
-========================= */
+/* ---------------- INIT ---------------- */
 window.onload = function () {
-  try {
-    document.getElementById("date").value =
-      new Date().toLocaleDateString();
+  document.getElementById("date").value =
+    new Date().toLocaleDateString();
 
-    const canvas = document.getElementById("chart");
+  const ctx = document.getElementById("chart").getContext("2d");
 
-    if (!canvas) {
-      setStatus("ERROR: chart missing");
-      return;
+  chart = new Chart(ctx, {
+    type: "line",
+    data: {
+      labels: [],
+      datasets: [{
+        label: "Temp",
+        data: [],
+        borderColor: "#ffcc00",
+        tension: 0.3
+      }]
     }
+  });
 
-    chart = new Chart(canvas.getContext("2d"), {
-      type: "line",
-      data: {
-        labels: [],
-        datasets: [{
-          label: "Temp",
-          data: [],
-          borderColor: "#ffcc00",
-          tension: 0.3
-        }]
-      }
-    });
-
-    setStatus("Ready");
-
-  } catch (err) {
-    setStatus("INIT ERROR: " + err.message);
-  }
+  document.getElementById("status").innerText = "Ready";
 };
 
-/* =========================
-   VOICE
-========================= */
+/* ---------------- TIMER ---------------- */
+function startTimer() {
+  clearInterval(timerInterval);
+
+  timerInterval = setInterval(() => {
+    if (!startTime) return;
+
+    const s = Math.floor((Date.now() - startTime) / 1000);
+    document.getElementById("timer").innerText =
+      `${Math.floor(s/60)}:${String(s%60).padStart(2,"0")}`;
+  }, 1000);
+}
+
+/* ---------------- VOICE ---------------- */
 function initVoice() {
   try {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-
-    if (!SR) {
-      setStatus("Speech not supported");
-      return;
-    }
+    if (!SR) return alert("Speech not supported");
 
     recognition = new SR();
     recognition.lang = "en-US";
     recognition.interimResults = false;
 
-    recognition.onstart = () => setStatus("Voice active");
-
     recognition.onresult = (e) => {
       const text = e.results[0][0].transcript.toLowerCase();
-      setStatus("Heard: " + text);
 
-      if (text.includes("first crack")) {
-        markFirstCrack();
-      }
+      document.getElementById("status").innerText = "Heard: " + text;
+
+      if (text.includes("first crack")) markFirstCrack();
 
       const m = text.match(/\d+/);
-      if (m && startTime) {
-        logTemp(parseInt(m[0]));
-      }
-    };
-
-    recognition.onerror = (e) => {
-      setStatus("Voice error: " + e.error);
+      if (m && startTime) logTemp(parseInt(m[0]));
     };
 
     recognition.onend = () => {
@@ -221,55 +208,49 @@ function initVoice() {
     recognition.start();
     voiceReady = true;
 
-    setStatus("Voice initialized");
+    document.getElementById("status").innerText = "Voice ready";
 
-  } catch (err) {
-    setStatus("Voice init failed: " + err.message);
+  } catch (e) {
+    document.getElementById("status").innerText = "Voice error";
   }
 }
 
-/* =========================
-   ROAST CONTROL
-========================= */
+/* ---------------- START ---------------- */
 function startRoast() {
-  try {
-    if (!chart) {
-      setStatus("Chart not ready");
-      return;
-    }
+  startTime = Date.now();
+  firstCrackTime = null;
+  dropTime = null;
 
-    startTime = Date.now();
-    firstCrackTime = null;
-    dropTime = null;
+  chart.data.labels = [];
+  chart.data.datasets[0].data = [];
+  chart.update();
 
-    chart.data.labels = [];
-    chart.data.datasets[0].data = [];
-    chart.update();
+  startTimer();
 
-    clearInterval(roastInterval);
+  clearInterval(roastInterval);
+  roastInterval = setInterval(() => {
+    try {
+      speechSynthesis.speak(new SpeechSynthesisUtterance("Temperature check"));
+    } catch {}
+  }, 30000);
 
-    roastInterval = setInterval(() => {
-      speak("Temperature check");
-    }, 30000);
-
-    setStatus("Roast started");
-
-  } catch (err) {
-    setStatus("Start error: " + err.message);
-  }
+  document.getElementById("status").innerText = "Roast started";
 }
 
+/* ---------------- FIRST CRACK ---------------- */
 function markFirstCrack() {
   if (!startTime) return;
 
   firstCrackTime = Date.now();
 
   const fc = (firstCrackTime - startTime) / 1000;
-  document.getElementById("fc").innerText = format(fc);
+  document.getElementById("fc").innerText =
+    Math.floor(fc/60) + ":" + String(Math.floor(fc%60)).padStart(2,"0");
 
-  setStatus("First crack recorded");
+  document.getElementById("status").innerText = "First crack";
 }
 
+/* ---------------- DROP ---------------- */
 function stopRoast() {
   dropTime = Date.now();
   clearInterval(roastInterval);
@@ -277,54 +258,30 @@ function stopRoast() {
   const total = (dropTime - startTime) / 1000;
   const dev = firstCrackTime ? (dropTime - firstCrackTime) / 1000 : 0;
 
-  document.getElementById("dev").innerText = format(dev);
+  document.getElementById("dev").innerText =
+    Math.floor(dev/60) + ":" + String(Math.floor(dev%60)).padStart(2,"0");
+
   document.getElementById("devPct").innerText =
     firstCrackTime ? ((dev / total) * 100).toFixed(1) + "%" : "--";
 
-  updateWeightLoss();
-  setStatus("Roast complete");
+  const g = parseFloat(document.getElementById("green").value);
+  const r = parseFloat(document.getElementById("roast").value);
+
+  if (g && r) {
+    document.getElementById("loss").value =
+      (((g - r) / g) * 100).toFixed(1);
+  }
+
+  document.getElementById("status").innerText = "Complete";
 }
 
-/* =========================
-   TEMP LOGGING
-========================= */
+/* ---------------- TEMP ---------------- */
 function logTemp(temp) {
   const t = (Date.now() - startTime) / 1000;
 
   chart.data.labels.push(Math.floor(t));
   chart.data.datasets[0].data.push(temp);
   chart.update();
-}
-
-/* =========================
-   WEIGHT LOSS
-========================= */
-function updateWeightLoss() {
-  const g = parseFloat(document.getElementById("green").value);
-  const r = parseFloat(document.getElementById("roast").value);
-
-  if (!g || !r) return;
-
-  const loss = ((g - r) / g) * 100;
-  document.getElementById("loss").value = loss.toFixed(1);
-}
-
-/* =========================
-   SPEECH
-========================= */
-function speak(text) {
-  try {
-    speechSynthesis.cancel();
-    speechSynthesis.speak(new SpeechSynthesisUtterance(text));
-  } catch (e) {}
-}
-
-/* =========================
-   FORMAT
-========================= */
-function format(sec) {
-  sec = Math.floor(sec);
-  return `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, "0")}`;
 }
 </script>
 
