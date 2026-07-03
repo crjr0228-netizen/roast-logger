@@ -96,7 +96,6 @@ function startRoast() {
   document.getElementById("status").innerText = "Roast Running";
 
   uiTimer = setInterval(updateTimer, 1000);
-
   devTimer = setInterval(updateDevTimes, 1000);
 
   roastTimer = setInterval(() => {
@@ -113,7 +112,7 @@ function updateTimer() {
     formatTime((Date.now() - startTime) / 1000);
 }
 
-// ---------------- DEV (LIVE) ----------------
+// ---------------- DEV LIVE ----------------
 
 function updateDevTimes() {
   const totalSec = Math.floor((Date.now() - startTime) / 1000);
@@ -122,10 +121,13 @@ function updateDevTimes() {
   if (!firstCrackTime) return;
 
   const devSec = Math.floor((Date.now() - firstCrackTime) / 1000);
+
   document.getElementById("devTime").innerText = formatTime(devSec);
 
   const pct = ((devSec / totalSec) * 100).toFixed(1);
-  document.getElementById("devPct").innerText = pct + "%";
+
+  document.getElementById("devPct").innerText =
+    `${pct}% (${formatTime(devSec)})`;
 }
 
 // ---------------- SPEECH ----------------
@@ -185,7 +187,7 @@ function markFirstCrack() {
   speak("First Crack recorded");
 }
 
-// ---------------- TEMP LOG ----------------
+// ---------------- TEMP ----------------
 
 function logTemp(temp) {
   const t = Math.floor((Date.now() - startTime) / 1000);
@@ -241,7 +243,9 @@ function stopRoast() {
   document.getElementById("devTime").innerText = formatTime(dev);
 
   const pct = firstCrackTime ? ((dev / total) * 100).toFixed(1) : "--";
-  document.getElementById("devPct").innerText = pct + "%";
+
+  document.getElementById("devPct").innerText =
+    firstCrackTime ? `${pct}% (${formatTime(dev)})` : "--";
 
   const green = parseFloat(document.getElementById("green").value);
   const roast = parseFloat(document.getElementById("roast").value);
