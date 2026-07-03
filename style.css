@@ -8,13 +8,6 @@ body {
 
 h1 { margin: 10px; }
 
-#status { color: #aaa; margin: 10px; }
-
-#timer {
-  font-size: 64px;
-  font-weight: bold;
-}
-
 .row {
   display: flex;
   justify-content: center;
@@ -23,21 +16,16 @@ h1 { margin: 10px; }
 }
 
 button {
-  font-size: 22px;
-  padding: 14px 20px;
-  border-radius: 12px;
+  font-size: 24px;
+  padding: 16px 24px;
   min-width: 180px;
+  border-radius: 12px;
   border: none;
 }
 
-.green { background: #1f7a1f; color: white; }
-.red { background: #7a1f1f; color: white; }
-.orange { background: #b36b00; color: white; }
-.gray { background: #333; color: white; }
-
 canvas {
   max-width: 95%;
-  background: #1a1a1a;
+  background: #111;
   border-radius: 10px;
 }
 
@@ -45,13 +33,7 @@ canvas {
   margin: 10px;
   padding: 12px;
   background: #111;
-  border-radius: 10px;
+  border-radius: 8px;
   font-size: 14px;
   color: #ddd;
-  min-height: 20px;
-}
-
-.summary {
-  margin-top: 10px;
-  font-size: 14px;
 }
