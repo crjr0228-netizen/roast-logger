@@ -6,9 +6,7 @@ body {
   text-align: center;
 }
 
-h1 {
-  margin: 10px;
-}
+h1 { margin: 10px; }
 
 #status {
   color: #aaa;
@@ -25,8 +23,8 @@ h1 {
 .row {
   display: flex;
   justify-content: center;
-  gap: 10px;
   flex-wrap: wrap;
+  gap: 10px;
   margin: 10px;
 }
 
@@ -54,4 +52,22 @@ canvas {
   max-width: 95%;
   background: #1a1a1a;
   border-radius: 10px;
+}
+
+#summary {
+  margin-top: 20px;
+  padding: 10px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  text-align: left;
+  padding: 10px;
+}
+
+input {
+  width: 120px;
+  font-size: 16px;
 }
