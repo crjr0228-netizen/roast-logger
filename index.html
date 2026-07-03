@@ -1,254 +1,269 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <meta charset="utf-8">
-  <title>Roast Mode Pro (v5)</title>
+<meta charset="utf-8">
+<title>Roast Mode Pro (v6)</title>
 
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-  <style>
-    body {
-      margin: 0;
-      font-family: Arial;
-      background: #0b0b0b;
-      color: white;
-      text-align: center;
-    }
+<style>
+body {
+  margin:0;
+  font-family:Arial;
+  background:#0b0b0b;
+  color:white;
+  text-align:center;
+}
 
-    h1 { margin: 10px; }
+h1 { margin:10px; }
 
-    #version {
-      font-size: 14px;
-      color: #888;
-      margin-bottom: 5px;
-    }
+#version {
+  font-size:14px;
+  color:#888;
+}
 
-    #status {
-      margin: 8px;
-      padding: 8px;
-      background: #111;
-      border-radius: 8px;
-      font-size: 14px;
-    }
+#status {
+  margin:8px;
+  padding:8px;
+  background:#111;
+  border-radius:8px;
+}
 
-    #clock {
-      font-size: 14px;
-      color: #aaa;
-    }
+.row {
+  display:flex;
+  justify-content:center;
+  flex-wrap:wrap;
+  gap:10px;
+  margin:10px;
+}
 
-    .row {
-      display: flex;
-      justify-content: center;
-      flex-wrap: wrap;
-      gap: 10px;
-      margin: 10px;
-    }
+button {
+  font-size:20px;
+  padding:14px 20px;
+  min-width:170px;
+  border:none;
+  border-radius:12px;
+  cursor:pointer;
+}
 
-    button {
-      font-size: 22px;
-      padding: 16px 22px;
-      min-width: 180px;
-      border-radius: 12px;
-      border: none;
-      cursor: pointer;
-    }
+.green{background:#1f7a1f;color:white;}
+.orange{background:#b36b00;color:white;}
+.red{background:#7a1f1f;color:white;}
+.blue{background:#1f4f7a;color:white;}
 
-    .green { background: #1f7a1f; color: white; }
-    .orange { background: #b36b00; color: white; }
-    .red { background: #7a1f1f; color: white; }
-    .blue { background: #1f4f7a; color: white; }
+#timer {
+  font-size:40px;
+}
 
-    #timer {
-      font-size: 40px;
-      margin: 10px;
-    }
+canvas {
+  max-width:95%;
+  background:#111;
+  border-radius:10px;
+}
 
-    canvas {
-      max-width: 95%;
-      background: #111;
-      border-radius: 10px;
-    }
+#timeline {
+  margin:15px auto;
+  max-width:600px;
+  font-size:14px;
+  color:#bbb;
+  line-height:1.6;
+}
 
-    .meta {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 12px;
-      max-width: 560px;
-      margin: 20px auto;
-      padding: 15px;
-      background: #111;
-      border-radius: 12px;
-    }
+.meta {
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:10px;
+  max-width:550px;
+  margin:20px auto;
+}
 
-    .meta input {
-      padding: 12px;
-      border-radius: 8px;
-      border: none;
-      background: #1b1b1b;
-      color: white;
-    }
-  </style>
+input {
+  padding:10px;
+  border-radius:8px;
+  border:none;
+  background:#1b1b1b;
+  color:white;
+}
+</style>
 </head>
 
 <body>
 
 <h1>Roast Mode Pro</h1>
-<div id="version">v5</div>
+<div id="version">v6</div>
 
-<div id="clock"></div>
-<div id="status">Loading...</div>
+<div id="status">Ready</div>
 
 <div class="row">
-  <button class="blue" onclick="initVoice()">Initialize Voice</button>
-  <button class="green" onclick="startRoast()">Start Roast</button>
-  <button class="orange" onclick="markFirstCrack()">First Crack</button>
-  <button class="red" onclick="endRoast()">End Roast</button>
+<button class="blue" onclick="initVoice()">Voice Init</button>
+<button class="green" onclick="startRoast()">Start Roast</button>
+<button class="orange" onclick="markFirstCrack()">First Crack</button>
+<button class="red" onclick="endRoast()">End Roast</button>
 </div>
 
 <div id="timer">00:00</div>
 
 <canvas id="chart"></canvas>
 
+<div id="timeline"></div>
+
 <div class="meta">
-  <input id="bean" placeholder="Bean Type">
-  <input id="date" placeholder="Date">
-  <input id="green" placeholder="Green Weight (g)">
-  <input id="roast" placeholder="Roast Weight (g)">
-  <input id="loss" placeholder="Weight Loss %" disabled>
+<input id="bean" placeholder="Bean Type">
+<input id="date" placeholder="Date">
+<input id="green" placeholder="Green Weight">
+<input id="roast" placeholder="Roast Weight">
+<input id="loss" placeholder="Weight Loss %" disabled>
 </div>
 
 <div>
-  <div>FC: <span id="fc">--</span></div>
-  <div>Dev Time: <span id="dev">--</span></div>
-  <div>Dev %: <span id="devPct">--</span></div>
+FC: <span id="fc">--</span><br>
+Dev Time: <span id="dev">--</span><br>
+Dev %: <span id="devPct">--</span>
 </div>
 
 <script>
-let startTime = 0;
-let firstCrackTime = null;
-let endTime = null;
-let chart = null;
-let timerInterval = null;
 
-/* CLOCK */
-setInterval(() => {
-  document.getElementById("clock").innerText =
-    "Clock: " + new Date().toLocaleTimeString();
-}, 1000);
+let startTime=0;
+let firstCrackTime=null;
+let endTime=null;
+let chart=null;
+let timer=null;
+let tempInputStep=true;
+
+/* CLOCK INPUT PROMPT FIX */
+function askStartTemp(){
+  const t = prompt("Enter starting temperature:");
+  return parseFloat(t || 0);
+}
 
 /* INIT */
-window.onload = function () {
-  document.getElementById("date").value =
-    new Date().toLocaleDateString();
+window.onload=function(){
+document.getElementById("date").value=new Date().toLocaleDateString();
 
-  chart = new Chart(
-    document.getElementById("chart").getContext("2d"),
-    {
-      type: "line",
-      data: {
-        labels: [],
-        datasets: [{
-          label: "Temp",
-          data: [],
-          borderColor: "#ffcc00",
-          tension: 0.3
-        }]
-      }
-    }
-  );
+chart=new Chart(
+document.getElementById("chart"),
+{
+type:"line",
+data:{labels:[],datasets:[{data:[],borderColor:"#ffcc00"}]}
+}
+);
 
-  document.getElementById("status").innerText = "Ready";
 };
 
 /* TIMER */
-function startTimer() {
-  clearInterval(timerInterval);
-
-  timerInterval = setInterval(() => {
-    if (!startTime) return;
-
-    const s = Math.floor((Date.now() - startTime) / 1000);
-    document.getElementById("timer").innerText =
-      `${Math.floor(s/60)}:${String(s%60).padStart(2,"0")}`;
-  }, 1000);
+function startTimer(){
+clearInterval(timer);
+timer=setInterval(()=>{
+if(!startTime)return;
+let s=Math.floor((Date.now()-startTime)/1000);
+document.getElementById("timer").innerText=
+Math.floor(s/60)+":"+String(s%60).padStart(2,"0");
+},1000);
 }
 
-/* VOICE (SAFE INIT) */
-function initVoice() {
-  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SR) return alert("Speech not supported");
+/* VOICE (must be button triggered) */
+function initVoice(){
+const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+if(!SR)return alert("No speech");
 
-  const rec = new SR();
-  rec.lang = "en-US";
+const r=new SR();
+r.lang="en-US";
 
-  rec.onresult = (e) => {
-    const text = e.results[0][0].transcript.toLowerCase();
+r.onresult=(e)=>{
+const text=e.results[0][0].transcript.toLowerCase();
+document.getElementById("status").innerText=text;
+if(text.includes("first crack"))markFirstCrack();
+};
 
-    document.getElementById("status").innerText = "Heard: " + text;
-
-    if (text.includes("first crack")) markFirstCrack();
-  };
-
-  rec.start();
+r.start();
 }
 
 /* START ROAST */
-function startRoast() {
-  startTime = Date.now();
-  firstCrackTime = null;
-  endTime = null;
+function startRoast(){
 
-  chart.data.labels = [];
-  chart.data.datasets[0].data = [];
-  chart.update();
+const temp=askStartTemp(); // RESTORED PROMPT FLOW
 
-  startTimer();
+startTime=Date.now();
+firstCrackTime=null;
+endTime=null;
 
-  document.getElementById("status").innerText = "Roast started";
+chart.data.labels=[];
+chart.data.datasets[0].data=[];
+chart.update();
+
+startTimer();
+
+speak("Roast started at " + temp + " degrees");
+
+document.getElementById("status").innerText="Running";
 }
 
 /* FIRST CRACK */
-function markFirstCrack() {
-  if (!startTime) return;
+function markFirstCrack(){
+if(!startTime)return;
+firstCrackTime=Date.now();
 
-  firstCrackTime = Date.now();
+let fc=(firstCrackTime-startTime)/1000;
 
-  const fc = (firstCrackTime - startTime) / 1000;
-  document.getElementById("fc").innerText =
-    format(fc);
+document.getElementById("fc").innerText=format(fc);
 
-  document.getElementById("status").innerText = "First crack";
+updateTimeline();
 }
 
 /* END ROAST */
-function endRoast() {
-  endTime = Date.now();
+function endRoast(){
+endTime=Date.now();
 
-  const total = (endTime - startTime) / 1000;
-  const dev = firstCrackTime
-    ? (endTime - firstCrackTime) / 1000
-    : 0;
+let total=(endTime-startTime)/1000;
+let dev=firstCrackTime?(endTime-firstCrackTime)/1000:0;
 
-  document.getElementById("dev").innerText = format(dev);
-  document.getElementById("devPct").innerText =
-    firstCrackTime ? ((dev / total) * 100).toFixed(1) + "%" : "--";
+document.getElementById("dev").innerText=format(dev);
 
-  const g = parseFloat(document.getElementById("green").value);
-  const r = parseFloat(document.getElementById("roast").value);
+document.getElementById("devPct").innerText=
+firstCrackTime?((dev/total)*100).toFixed(1)+"%":"--";
 
-  if (g && r) {
-    document.getElementById("loss").value =
-      (((g - r) / g) * 100).toFixed(1);
-  }
+updateWeightLoss();
+updateTimeline();
 
-  document.getElementById("status").innerText = "Roast complete";
+speak("Roast complete");
 }
 
-/* FORMAT */
-function format(sec) {
-  sec = Math.floor(sec);
-  return `${Math.floor(sec/60)}:${String(sec%60).padStart(2,"0")}`;
+/* TIMELINE RESTORED */
+function updateTimeline(){
+if(!firstCrackTime)return;
+
+let devSec=((endTime||Date.now())-firstCrackTime)/1000;
+
+const marks=[15,17.5,20,22.5,25];
+
+document.getElementById("timeline").innerHTML=
+"<b>Development Timeline</b><br>"+
+marks.map(p=>{
+let t=(p/100)*devSec;
+return p+"% → "+format(t);
+}).join("<br>");
 }
+
+/* TEMP */
+function speak(t){
+try{
+speechSynthesis.cancel();
+speechSynthesis.speak(new SpeechSynthesisUtterance(t));
+}catch(e){}
+}
+
+function updateWeightLoss(){
+let g=parseFloat(document.getElementById("green").value);
+let r=parseFloat(document.getElementById("roast").value);
+if(!g||!r)return;
+document.getElementById("loss").value=((g-r)/g*100).toFixed(1);
+}
+
+function format(s){
+s=Math.floor(s);
+return Math.floor(s/60)+":"+String(s%60).padStart(2,"0");
+}
+
 </script>
 
 </body>
