@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="utf-8">
-<title>Roast Mode Pro (Stable Single File)</title>
+<title>Roast OS Pro v1</title>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
@@ -30,26 +30,17 @@ margin:5px;
 color:#ffcc00;
 }
 
-.row{
-display:flex;
-justify-content:center;
-gap:10px;
-flex-wrap:wrap;
-margin:10px;
-}
-
 button{
-font-size:20px;
-padding:14px 18px;
-min-width:170px;
-border-radius:12px;
+font-size:18px;
+padding:12px 18px;
+margin:5px;
 border:none;
+border-radius:10px;
 cursor:pointer;
 }
 
-.blue{background:#1f4f7a;color:white;}
 .green{background:#1f7a1f;color:white;}
-.orange{background:#b36b00;color:white;}
+.blue{background:#1f4f7a;color:white;}
 .red{background:#7a1f7a;color:white;}
 
 #timer{
@@ -67,17 +58,14 @@ border-radius:10px;
 
 <body>
 
-<h1>Roast Mode Prov2.0</h1>
+<h1>Roast OS Pro v2</h1>
 
 <div id="status">Ready</div>
 <div id="tempDisplay">Temp: --</div>
 
-<div class="row">
-<button class="blue" onclick="initVoice()">Voice</button>
-<button class="green" onclick="startRoast()">Start Roast</button>
-<button class="orange" onclick="markFirstCrack()">First Crack</button>
-<button class="red" onclick="endRoast()">End Roast</button>
-</div>
+<button class="green" onclick="initVoice()">Initialize Voice</button>
+<button class="blue" onclick="startRoast()">Start Roast</button>
+<button class="red" onclick="stopRoast()">End Roast</button>
 
 <div id="timer">00:00</div>
 
@@ -85,164 +73,168 @@ border-radius:10px;
 
 <script>
 
-window.onerror = function(msg, src, line){
-document.getElementById("status").innerText =
-"JS ERROR: " + msg + " (line " + line + ")";
-};
-
-console.log("JS LOADED OK");
-
-/* ================= STATE ================= */
 let recognition;
+let voiceReady = false;
+let voiceActive = false;
+let listening = false;
+
 let chart;
-
-let sessionActive = false;
 let startTime = 0;
+let uiTimer;
+let roastTimer;
 
-let timerInterval = null;
-
-/* ================= INIT ================= */
 window.onload = function () {
-
-try {
 
 chart = new Chart(document.getElementById("chart"), {
 type: "line",
 data: {
 labels: [],
 datasets: [
-{
-label: "Temp",
-data: [],
-borderColor: "#ffcc00",
-fill: false
-},
-{
-label: "RoR",
-data: [],
-borderColor: "#ff4444",
-fill: false
-}
+{ label:"Temp", data:[], borderColor:"#ffcc00", fill:false },
+{ label:"RoR", data:[], borderColor:"#ff4444", fill:false }
 ]
 }
 });
 
-document.getElementById("status").innerText = "Ready";
-
-} catch (e) {
-document.getElementById("status").innerText = "INIT ERROR: " + e.message;
-}
 };
-
-/* ================= START ROAST ================= */
-function startRoast(){
-
-try {
-
-alert("START ROAST FIRED");
-
-sessionActive = true;
-startTime = Date.now();
-
-document.getElementById("status").innerText = "Running";
-
-startTimer();
-
-} catch (e) {
-document.getElementById("status").innerText = "START ERROR: " + e.message;
-}
-}
-
-/* ================= TIMER ================= */
-function startTimer(){
-
-clearInterval(timerInterval);
-
-timerInterval = setInterval(() => {
-
-if (!sessionActive) return;
-
-let s = Math.floor((Date.now() - startTime) / 1000);
-
-document.getElementById("timer").innerText =
-Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0");
-
-}, 1000);
-}
 
 /* ================= VOICE ================= */
 function initVoice(){
 
-try {
+const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+if (!SpeechRecognition) {
+alert("Speech not supported");
+return;
+}
 
-const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-
-recognition = new SR();
+recognition = new SpeechRecognition();
 recognition.lang = "en-US";
 recognition.continuous = true;
 
-recognition.onresult = (e) => {
+recognition.onresult = (event) => {
+const text = event.results[event.results.length - 1][0].transcript;
+handleSpeech(text);
+};
 
-const text =
-e.results[e.results.length - 1][0].transcript.toLowerCase();
-
-document.getElementById("status").innerText = text;
-
-let numbers = text.match(/\d+/g);
-
-if ((text.includes("temp") || text.includes("temperature")) && numbers) {
-commitTemp(parseInt(numbers[numbers.length - 1]));
-}
-
-if (text.includes("first crack")) markFirstCrack();
-if (text.includes("end roast")) endRoast();
+recognition.onend = () => {
+if (voiceActive) recognition.start();
 };
 
 recognition.start();
-document.getElementById("status").innerText = "Voice active";
 
-} catch (e) {
-document.getElementById("status").innerText = "VOICE ERROR: " + e.message;
+voiceActive = true;
+voiceReady = true;
+
+document.getElementById("status").innerText = "Voice ready";
 }
+
+/* ================= START ROAST ================= */
+function startRoast(){
+
+startTime = Date.now();
+
+uiTimer = setInterval(() => {
+let t = Math.floor((Date.now() - startTime)/1000);
+document.getElementById("timer").innerText =
+Math.floor(t/60)+":"+String(t%60).padStart(2,"0");
+},1000);
+
+/* CRITICAL LOOP RESTORED */
+roastTimer = setInterval(() => {
+askTemperature();
+}, 30000);
+
+document.getElementById("status").innerText = "Running";
 }
 
-/* ================= TEMP + CHART ================= */
-function commitTemp(temp){
+/* ================= ASK TEMP ================= */
+function askTemperature(){
+if (!voiceReady || listening) return;
 
-if (!sessionActive) return;
+document.getElementById("status").innerText = "Say temperature...";
+speak("Temperature");
 
+setTimeout(() => {
+listenOnce();
+}, 200);
+}
+
+/* ================= LISTEN ONCE ================= */
+function listenOnce(){
+
+const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+const rec = new SpeechRecognition();
+rec.lang = "en-US";
+
+listening = true;
+
+rec.onresult = (e) => {
+handleSpeech(e.results[0][0].transcript);
+};
+
+rec.onend = () => {
+listening = false;
+};
+
+rec.start();
+}
+
+/* ================= SPEECH HANDLER ================= */
+function handleSpeech(text){
+
+text = text.toLowerCase();
+
+let temp = parseNumber(text);
+
+if (temp !== null) {
+logTemp(temp);
 document.getElementById("tempDisplay").innerText = "Temp: " + temp;
+document.getElementById("status").innerText = "Logged: " + temp;
+} else {
+document.getElementById("status").innerText = "Heard: " + text;
+}
+}
 
-let t = Math.floor((Date.now() - startTime) / 1000);
+/* ================= LOG TEMP ================= */
+function logTemp(temp){
+
+let t = Math.floor((Date.now()-startTime)/1000);
 
 chart.data.labels.push(t);
 chart.data.datasets[0].data.push(temp);
 
-/* RoR */
-let ror = 0;
-
 let temps = chart.data.datasets[0].data;
 let times = chart.data.labels;
 
-if (temps.length > 1) {
-let dt = times[times.length - 1] - times[times.length - 2];
-let dT = temps[temps.length - 1] - temps[temps.length - 2];
-if (dt !== 0) ror = dT / dt;
+let ror = 0;
+if (temps.length>1){
+let dt = times[times.length-1]-times[times.length-2];
+let dT = temps[temps.length-1]-temps[temps.length-2];
+ror = dt ? dT/dt : 0;
 }
 
 chart.data.datasets[1].data.push(ror);
-
 chart.update();
 }
 
-/* ================= OTHER ================= */
-function markFirstCrack(){
-document.getElementById("status").innerText = "First Crack";
+/* ================= STOP ================= */
+function stopRoast(){
+voiceActive = false;
+clearInterval(uiTimer);
+clearInterval(roastTimer);
+document.getElementById("status").innerText = "Stopped";
 }
 
-function endRoast(){
-sessionActive = false;
-document.getElementById("status").innerText = "Complete";
+/* ================= PARSER ================= */
+function parseNumber(text){
+let m = text.match(/\d+/g);
+return m ? parseInt(m[m.length-1]) : null;
+}
+
+/* ================= SPEAK ================= */
+function speak(text){
+speechSynthesis.cancel();
+speechSynthesis.speak(new SpeechSynthesisUtterance(text));
 }
 
 </script>
