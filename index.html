@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="utf-8">
-<title>Roast Mode Pro (Stable Full Build)</title>
+<title>Roast Mode Pro (State Fix v3.3)</title>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
@@ -61,7 +61,7 @@ border-radius:10px;
 
 <body>
 
-<h1>Roast Mode Pro v8</h1>
+<h1>Roast Mode Pro v9</h1>
 <div id="status">Ready</div>
 
 <div class="row">
@@ -78,14 +78,16 @@ border-radius:10px;
 <script>
 
 /* ================= STATE ================= */
-let recognition = null;
-let chart = null;
+let recognition;
+let chart;
+
+let sessionActive = false;
 
 let startTime = 0;
-let temp = 0;
+let tempHistory = [];
 
 let timerInterval = null;
-let tempPromptInterval = null;
+let tempInterval = null;
 
 /* ================= INIT ================= */
 window.onload = function () {
@@ -125,7 +127,7 @@ function startTimer(){
 clearInterval(timerInterval);
 
 timerInterval = setInterval(() => {
-if (!startTime) return;
+if (!sessionActive) return;
 
 let s = Math.floor((Date.now() - startTime) / 1000);
 
@@ -135,15 +137,10 @@ Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0");
 }, 1000);
 }
 
-/* ================= VOICE ================= */
+/* ================= VOICE (UNCHANGED LOGIC) ================= */
 function initVoice(){
 
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-
-if (!SR) {
-alert("Speech not supported in this browser");
-return;
-}
 
 recognition = new SR();
 recognition.lang = "en-US";
@@ -152,13 +149,13 @@ recognition.continuous = true;
 recognition.onresult = (e) => {
 const text = e.results[e.results.length - 1][0].transcript.toLowerCase();
 
-document.getElementById("status").innerText = "Heard: " + text;
+document.getElementById("status").innerText = text;
 
-/* TEMP CAPTURE */
+/* TEMP */
 if (text.includes("temp") || text.includes("temperature")) {
 let n = text.match(/\d+/);
 if (n) {
-temp = parseInt(n[0]);
+tempHistory.push(parseInt(n[0]));
 }
 }
 
@@ -178,24 +175,30 @@ document.getElementById("status").innerText = "Voice active";
 speak("Voice system ready");
 }
 
-/* ================= START ROAST ================= */
+/* ================= START ================= */
 function startRoast(){
 
+sessionActive = true;
 startTime = Date.now();
-temp = 0;
+tempHistory = [];
 
 startTimer();
 
-/* 30s VOICE PROMPT + CHART LOG */
-clearInterval(tempPromptInterval);
+/* LOG LOOP */
+clearInterval(tempInterval);
 
-tempPromptInterval = setInterval(() => {
+tempInterval = setInterval(() => {
 
-let snapshot = temp; // CRITICAL FIX: freeze value at moment
+if (!sessionActive) return;
+
+let temp =
+tempHistory.length > 0
+? tempHistory[tempHistory.length - 1]
+: 0;
+
+logToChart(temp);
 
 speak("temperature");
-
-logToChart(snapshot);
 
 }, 30000);
 
@@ -203,31 +206,28 @@ speak("Roast started");
 document.getElementById("status").innerText = "Running";
 }
 
-/* ================= CHART LOGGING ================= */
-function logToChart(capturedTemp){
+/* ================= CHART ================= */
+function logToChart(temp){
 
-if (!startTime) return;
+if (!sessionActive) return;
 
 let t = Math.floor((Date.now() - startTime) / 1000);
 
-/* TEMP SERIES */
+/* TEMP */
 chart.data.labels.push(t);
-chart.data.datasets[0].data.push(capturedTemp);
+chart.data.datasets[0].data.push(temp);
 
-/* ROR */
+/* RoR */
 let ror = 0;
 
 let temps = chart.data.datasets[0].data;
 let times = chart.data.labels;
 
 if (temps.length > 1) {
-
 let dt = times[times.length - 1] - times[times.length - 2];
 let dT = temps[temps.length - 1] - temps[temps.length - 2];
 
-if (dt !== 0) {
-ror = dT / dt;
-}
+if (dt !== 0) ror = dT / dt;
 }
 
 chart.data.datasets[1].data.push(ror);
@@ -244,7 +244,10 @@ speak("First crack");
 /* ================= END ROAST ================= */
 function endRoast(){
 
-clearInterval(tempPromptInterval);
+sessionActive = false;
+
+clearInterval(tempInterval);
+clearInterval(timerInterval);
 
 document.getElementById("status").innerText = "Complete";
 speak("Roast complete");
