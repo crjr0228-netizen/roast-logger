@@ -8,7 +8,7 @@ body {
 
 h1 { margin: 10px; }
 
-#status { color: #aaa; }
+#status { color: #aaa; margin: 10px; }
 
 #timer {
   font-size: 64px;
@@ -43,9 +43,15 @@ canvas {
 
 #devStrip {
   margin: 10px;
-  padding: 10px;
+  padding: 12px;
   background: #111;
-  border-radius: 8px;
+  border-radius: 10px;
   font-size: 14px;
-  color: #ccc;
+  color: #ddd;
+  min-height: 20px;
+}
+
+.summary {
+  margin-top: 10px;
+  font-size: 14px;
 }
