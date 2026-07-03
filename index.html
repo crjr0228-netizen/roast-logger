@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="utf-8">
-<title>Roast Mode Pro (Clean Reset)</title>
+<title>Roast Mode Pro (v1.3)</title>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
@@ -68,9 +68,7 @@ border-radius:10px;
 <body>
 
 <h1>Roast Mode Pro</h1>
-
-<!-- VERSION -->
-<div id="version">v1.2</div>
+<div id="version">v1.3</div>
 
 <div id="status">Ready</div>
 
@@ -87,19 +85,17 @@ border-radius:10px;
 
 <script>
 
-/* ===== STATE ===== */
-let startTime = 0;
-let fcTime = null;
-let endTime = null;
-let timerInterval = null;
-let chart = null;
-let recognition = null;
-let voiceOn = false;
+let startTime=0;
+let fcTime=null;
+let endTime=null;
+let timerInterval=null;
+let chart=null;
+let recognition=null;
 
-/* ===== INIT ===== */
-window.onload = function () {
+/* INIT */
+window.onload=function(){
 
-chart = new Chart(
+chart=new Chart(
 document.getElementById("chart"),
 {
 type:"line",
@@ -113,25 +109,25 @@ borderColor:"#ffcc00"
 }
 );
 
-document.getElementById("status").innerText = "Ready";
+document.getElementById("status").innerText="Ready";
 };
 
-/* ===== VOICE ===== */
+/* VOICE */
 function initVoice(){
 
-const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
 
 if(!SR){
-alert("Speech not supported in this browser");
+alert("Speech not supported");
 return;
 }
 
-recognition = new SR();
-recognition.lang = "en-US";
+recognition=new SR();
+recognition.lang="en-US";
 
-recognition.onresult = (e)=>{
-const text = e.results[0][0].transcript.toLowerCase();
-document.getElementById("status").innerText = "Heard: " + text;
+recognition.onresult=(e)=>{
+const text=e.results[0][0].transcript.toLowerCase();
+document.getElementById("status").innerText="Heard: "+text;
 
 if(text.includes("first crack")){
 markFirstCrack();
@@ -139,59 +135,57 @@ markFirstCrack();
 };
 
 recognition.start();
-voiceOn = true;
-
-document.getElementById("status").innerText = "Voice active";
+document.getElementById("status").innerText="Voice active";
 }
 
-/* ===== START ROAST ===== */
+/* START ROAST (TEMP RESTORED) */
 function startRoast(){
 
-startTime = Date.now();
-fcTime = null;
-endTime = null;
+// 🔥 THIS IS THE ONLY RESTORED FEATURE
+let temp = prompt("Enter temperature:");
 
-chart.data.labels = [];
-chart.data.datasets[0].data = [];
+startTime=Date.now();
+fcTime=null;
+endTime=null;
+
+chart.data.labels=[];
+chart.data.datasets[0].data=[];
 chart.update();
 
 startTimer();
 
-document.getElementById("status").innerText = "Roast started";
+document.getElementById("status").innerText=
+"Roast started at " + temp + "°";
 }
 
-/* ===== TIMER ===== */
+/* TIMER */
 function startTimer(){
 
 clearInterval(timerInterval);
 
-timerInterval = setInterval(()=>{
+timerInterval=setInterval(()=>{
 if(!startTime)return;
 
-let s = Math.floor((Date.now() - startTime)/1000);
+let s=Math.floor((Date.now()-startTime)/1000);
 
-document.getElementById("timer").innerText =
-Math.floor(s/60) + ":" + String(s%60).padStart(2,"0");
+document.getElementById("timer").innerText=
+Math.floor(s/60)+":"+String(s%60).padStart(2,"0");
 
 },1000);
 }
 
-/* ===== FIRST CRACK ===== */
+/* FIRST CRACK */
 function markFirstCrack(){
-
 if(!startTime)return;
 
-fcTime = Date.now();
-
-document.getElementById("status").innerText = "First Crack";
+fcTime=Date.now();
+document.getElementById("status").innerText="First Crack";
 }
 
-/* ===== END ROAST ===== */
+/* END ROAST */
 function endRoast(){
-
-endTime = Date.now();
-
-document.getElementById("status").innerText = "Roast complete";
+endTime=Date.now();
+document.getElementById("status").innerText="Roast complete";
 }
 
 </script>
