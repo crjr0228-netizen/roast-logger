@@ -1,8 +1,10 @@
 let startTime = 0;
 let firstCrackTime = null;
+let dropTime = null;
 
-let data = [];
-let roastInterval;
+let roastInterval = null;
+
+// ---------------- CHART ----------------
 
 const ctx = document.getElementById("chart").getContext("2d");
 
@@ -24,63 +26,33 @@ const chart = new Chart(ctx, {
 function startRoast() {
   startTime = Date.now();
   firstCrackTime = null;
-  data = [];
+  dropTime = null;
 
   chart.data.labels = [];
   chart.data.datasets[0].data = [];
   chart.update();
+
+  document.getElementById("status").innerText = "Running";
 
   roastInterval = setInterval(() => {
     askTemp();
   }, 30000);
 
   askTemp();
-  startTimer();
-}
-
-// ---------------- TIMER ----------------
-
-function startTimer() {
-  setInterval(() => {
-    const sec = (Date.now() - startTime) / 1000;
-    document.getElementById("timer").innerText =
-      format(sec);
-  }, 1000);
-}
-
-// ---------------- TEMP FLOW ----------------
-
-function askTemp() {
-  speak("Temperature");
-
-  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  const rec = new SR();
-  rec.lang = "en-US";
-
-  rec.onresult = (e) => {
-    const text = e.results[0][0].transcript;
-    const temp = parseInt(text.match(/\d+/)?.[0]);
-
-    if (!isNaN(temp)) {
-      logTemp(temp);
-    }
-
-    if (!firstCrackTime && text.toLowerCase().includes("first crack")) {
-      markFirstCrack();
-    }
-  };
-
-  rec.start();
 }
 
 // ---------------- FIRST CRACK ----------------
 
 function markFirstCrack() {
+  if (!startTime) return;
+
   firstCrackTime = Date.now();
 
   const fcSec = (firstCrackTime - startTime) / 1000;
 
   document.getElementById("fc").innerText = format(fcSec);
+
+  speak("First crack");
 
   updateDevStrip();
 }
@@ -88,12 +60,12 @@ function markFirstCrack() {
 // ---------------- STOP ----------------
 
 function stopRoast() {
+  dropTime = Date.now();
+
   clearInterval(roastInterval);
 
-  const total = (Date.now() - startTime) / 1000;
-  const dev = firstCrackTime
-    ? (Date.now() - firstCrackTime) / 1000
-    : 0;
+  const total = (dropTime - startTime) / 1000;
+  const dev = firstCrackTime ? (dropTime - firstCrackTime) / 1000 : 0;
 
   document.getElementById("dev").innerText = format(dev);
   document.getElementById("devPct").innerText =
@@ -102,7 +74,7 @@ function stopRoast() {
   updateDevStrip();
 }
 
-// ---------------- 🔥 FIXED DEV STRIP ----------------
+// ---------------- 🔥 FIXED DEV STRIP (NO BREAKS, CORRECT MODEL) ----------------
 
 function updateDevStrip() {
 
@@ -113,22 +85,41 @@ function updateDevStrip() {
     return;
   }
 
-  const devSec = (Date.now() - firstCrackTime) / 1000;
+  const devSec = ((dropTime || Date.now()) - firstCrackTime) / 1000;
 
   const milestones = [15, 17.5, 20, 22.5, 25];
 
-  el.innerText = milestones.map(pct => {
-    const t = (pct / 100) * devSec;
-    return `${pct}% (${format(t)})`;
-  }).join(" | ");
+  el.innerText = milestones
+    .map(p => `${p}% (${format((p / 100) * devSec)})`)
+    .join(" | ");
+}
+
+// ---------------- TEMP (SAFE SIMPLE VERSION) ----------------
+
+function askTemp() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const rec = new SR();
+
+  rec.lang = "en-US";
+
+  rec.onresult = (e) => {
+    const text = e.results[0][0].transcript;
+    const temp = parseInt(text.match(/\d+/)?.[0]);
+
+    if (!isNaN(temp)) logTemp(temp);
+
+    if (text.toLowerCase().includes("first crack")) {
+      markFirstCrack();
+    }
+  };
+
+  rec.start();
 }
 
 // ---------------- LOG TEMP ----------------
 
 function logTemp(temp) {
   const t = (Date.now() - startTime) / 1000;
-
-  data.push({ t, temp });
 
   chart.data.labels.push(Math.floor(t));
   chart.data.datasets[0].data.push(temp);
@@ -138,9 +129,9 @@ function logTemp(temp) {
 
 // ---------------- HELPERS ----------------
 
-function speak(text) {
+function speak(t) {
   speechSynthesis.cancel();
-  speechSynthesis.speak(new SpeechSynthesisUtterance(text));
+  speechSynthesis.speak(new SpeechSynthesisUtterance(t));
 }
 
 function format(sec) {
