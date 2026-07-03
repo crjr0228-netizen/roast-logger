@@ -38,6 +38,12 @@ const chart = new Chart(ctx, {
         data: [],
         showLine: false,
         pointRadius: 8
+      },
+      {
+        label: "Dev Milestones",
+        data: [],
+        showLine: false,
+        pointRadius: 6
       }
     ]
   }
@@ -112,7 +118,7 @@ function updateTimer() {
     formatTime((Date.now() - startTime) / 1000);
 }
 
-// ---------------- DEV LIVE ----------------
+// ---------------- DEV LIVE + MARKERS ----------------
 
 function updateDevTimes() {
   const totalSec = Math.floor((Date.now() - startTime) / 1000);
@@ -124,10 +130,36 @@ function updateDevTimes() {
 
   document.getElementById("devTime").innerText = formatTime(devSec);
 
-  const pct = ((devSec / totalSec) * 100).toFixed(1);
+  const pct = (devSec / totalSec) * 100;
 
   document.getElementById("devPct").innerText =
-    `${pct}% (${formatTime(devSec)})`;
+    `${pct.toFixed(1)}% (${formatTime(devSec)})`;
+
+  drawDevMilestones(devSec);
+}
+
+// ---------------- 🔥 DEV MILESTONES (THIS IS THE KEY FIX) ----------------
+
+function drawDevMilestones(devSec) {
+
+  const milestones = [15, 17.5, 20, 22.5, 25];
+
+  const baseTemp =
+    data.length ? data[data.length - 1].temp : 0;
+
+  chart.data.datasets[3].data = [];
+
+  milestones.forEach(pct => {
+
+    const sec = (pct / 100) * devSec;
+
+    chart.data.datasets[3].data.push({
+      x: (firstCrackTime ? Math.floor((firstCrackTime - startTime) / 1000) + sec : sec) + "s",
+      y: baseTemp
+    });
+  });
+
+  chart.update();
 }
 
 // ---------------- SPEECH ----------------
@@ -246,14 +278,6 @@ function stopRoast() {
 
   document.getElementById("devPct").innerText =
     firstCrackTime ? `${pct}% (${formatTime(dev)})` : "--";
-
-  const green = parseFloat(document.getElementById("green").value);
-  const roast = parseFloat(document.getElementById("roast").value);
-
-  if (!isNaN(green) && !isNaN(roast)) {
-    const loss = ((green - roast) / green) * 100;
-    document.getElementById("loss").innerText = loss.toFixed(1) + "%";
-  }
 
   speak("Roast complete");
 }
