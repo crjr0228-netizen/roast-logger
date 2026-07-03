@@ -50,7 +50,23 @@
       border-radius: 8px;
       font-size: 14px;
       color: #ddd;
-      min-height: 20px;
+    }
+
+    .meta {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 6px;
+      max-width: 500px;
+      margin: 10px auto;
+      text-align: left;
+    }
+
+    .meta input {
+      width: 100%;
+      padding: 8px;
+      font-size: 14px;
+      border-radius: 6px;
+      border: none;
     }
 
     #timer {
@@ -77,7 +93,16 @@
 
 <div id="devStrip">Waiting for First Crack...</div>
 
-<div style="margin-top:10px;">
+<!-- 🔥 RESTORED METADATA PANEL -->
+<div class="meta">
+  <input id="bean" placeholder="Bean Type">
+  <input id="date" placeholder="Date">
+  <input id="green" placeholder="Green Weight (g)">
+  <input id="roast" placeholder="Roast Weight (g)">
+  <input id="loss" placeholder="Weight Loss %" disabled>
+</div>
+
+<div>
   <div>FC: <span id="fc">--</span></div>
   <div>Dev Time: <span id="dev">--</span></div>
   <div>Dev %: <span id="devPct">--</span></div>
@@ -88,9 +113,14 @@ let startTime = 0;
 let firstCrackTime = null;
 let dropTime = null;
 
-let voiceReady = false;
 let recognition = null;
+let voiceReady = false;
 let roastInterval = null;
+
+// auto-fill date
+document.getElementById("date").value =
+  new Date().toLocaleDateString();
+
 
 // ---------------- CHART ----------------
 
@@ -109,15 +139,13 @@ const chart = new Chart(ctx, {
   }
 });
 
-// ---------------- INIT VOICE ----------------
+
+// ---------------- VOICE ----------------
 
 function initVoice() {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 
-  if (!SR) {
-    alert("Speech Recognition not supported");
-    return;
-  }
+  if (!SR) return alert("Speech not supported");
 
   recognition = new SR();
   recognition.lang = "en-US";
@@ -125,33 +153,22 @@ function initVoice() {
 
   recognition.onresult = (e) => {
     const text = e.results[0][0].transcript.toLowerCase();
-    console.log("VOICE:", text);
 
     if (text.includes("first crack")) {
       markFirstCrack();
     }
 
-    const match = text.match(/\d+/);
-    if (match && startTime) {
-      logTemp(parseInt(match[0]));
-    }
+    const m = text.match(/\d+/);
+    if (m && startTime) logTemp(parseInt(m[0]));
   };
-
-  recognition.onend = () => {
-    if (voiceReady) recognition.start();
-  };
-
-  recognition.onerror = () => {
-    // ignore
-  };
-
-  voiceReady = true;
 
   recognition.start();
+  voiceReady = true;
 
   document.getElementById("devStrip").innerText =
-    "Voice Initialized";
+    "Voice Ready";
 }
+
 
 // ---------------- START ----------------
 
@@ -164,29 +181,11 @@ function startRoast() {
   chart.data.datasets[0].data = [];
   chart.update();
 
-  document.getElementById("devStrip").innerText =
-    "Waiting for First Crack...";
-
-  // 30-second voice loop
   roastInterval = setInterval(() => {
     speak("Temperature check");
-    if (recognition && voiceReady) {
-      try { recognition.start(); } catch(e) {}
-    }
   }, 30000);
-
-  startTimer();
 }
 
-// ---------------- TIMER ----------------
-
-function startTimer() {
-  setInterval(() => {
-    if (!startTime) return;
-    const sec = (Date.now() - startTime) / 1000;
-    document.getElementById("timer").innerText = format(sec);
-  }, 1000);
-}
 
 // ---------------- FIRST CRACK ----------------
 
@@ -199,8 +198,8 @@ function markFirstCrack() {
   document.getElementById("fc").innerText = format(fc);
 
   updateDevStrip();
-  speak("First crack");
 }
+
 
 // ---------------- DROP ----------------
 
@@ -218,10 +217,12 @@ function stopRoast() {
   document.getElementById("devPct").innerText =
     firstCrackTime ? ((dev / total) * 100).toFixed(1) + "%" : "--";
 
+  updateWeightLoss();
   updateDevStrip();
 }
 
-// ---------------- DEV STRIP (FIXED MILESTONES) ----------------
+
+// ---------------- DEV STRIP ----------------
 
 function updateDevStrip() {
   if (!firstCrackTime) return;
@@ -236,11 +237,10 @@ function updateDevStrip() {
     ).join(" | ");
 }
 
+
 // ---------------- TEMP ----------------
 
 function logTemp(temp) {
-  if (!startTime) return;
-
   const t = (Date.now() - startTime) / 1000;
 
   chart.data.labels.push(Math.floor(t));
@@ -248,12 +248,29 @@ function logTemp(temp) {
   chart.update();
 }
 
+
+// ---------------- WEIGHT LOSS ----------------
+
+function updateWeightLoss() {
+  const green = parseFloat(document.getElementById("green").value);
+  const roast = parseFloat(document.getElementById("roast").value);
+
+  if (!green || !roast) return;
+
+  const loss = ((green - roast) / green) * 100;
+
+  document.getElementById("loss").value =
+    loss.toFixed(1);
+}
+
+
 // ---------------- SPEAK ----------------
 
-function speak(text) {
+function speak(t) {
   speechSynthesis.cancel();
-  speechSynthesis.speak(new SpeechSynthesisUtterance(text));
+  speechSynthesis.speak(new SpeechSynthesisUtterance(t));
 }
+
 
 // ---------------- FORMAT ----------------
 
