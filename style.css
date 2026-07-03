@@ -6,7 +6,9 @@ body {
   text-align: center;
 }
 
-h1 { margin: 10px; }
+h1 {
+  margin: 10px;
+}
 
 #status {
   color: #aaa;
@@ -43,9 +45,7 @@ button {
 .gray { background: #333; color: white; }
 
 button:disabled {
-  background: #555 !important;
-  color: #999 !important;
-  opacity: 0.6;
+  opacity: 0.5;
 }
 
 .stats {
@@ -60,20 +60,28 @@ canvas {
   border-radius: 10px;
 }
 
-#summary {
-  margin-top: 20px;
+#devStrip {
+  margin: 10px auto;
   padding: 10px;
+  max-width: 95%;
+  background: #111;
+  border-radius: 10px;
+  font-size: 14px;
+  color: #ccc;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
 }
 
 .grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 10px;
-  text-align: left;
   padding: 10px;
+  text-align: left;
 }
 
 input {
   width: 120px;
-  font-size: 16px;
 }
