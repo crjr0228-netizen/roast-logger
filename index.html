@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="utf-8">
-<title>Roast Mode Pro (v1.3)</title>
+<title>Roast Mode Pro (Voice v2)</title>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
@@ -20,7 +20,6 @@ h1{margin:10px;}
 #version{
 font-size:14px;
 color:#888;
-margin-bottom:5px;
 }
 
 #status{
@@ -33,8 +32,8 @@ border-radius:8px;
 .row{
 display:flex;
 justify-content:center;
-flex-wrap:wrap;
 gap:10px;
+flex-wrap:wrap;
 margin:10px;
 }
 
@@ -47,10 +46,10 @@ border:none;
 cursor:pointer;
 }
 
+.blue{background:#1f4f7a;color:white;}
 .green{background:#1f7a1f;color:white;}
 .orange{background:#b36b00;color:white;}
 .red{background:#7a1f1f;color:white;}
-.blue{background:#1f4f7a;color:white;}
 
 #timer{
 font-size:40px;
@@ -68,12 +67,12 @@ border-radius:10px;
 <body>
 
 <h1>Roast Mode Pro</h1>
-<div id="version">v1.4</div>
+<div id="version">v2.0 VOICE CORE</div>
 
 <div id="status">Ready</div>
 
 <div class="row">
-<button class="blue" onclick="initVoice()">Voice</button>
+<button class="blue" onclick="initVoice()">Init Voice</button>
 <button class="green" onclick="startRoast()">Start Roast</button>
 <button class="orange" onclick="markFirstCrack()">First Crack</button>
 <button class="red" onclick="endRoast()">End Roast</button>
@@ -85,26 +84,27 @@ border-radius:10px;
 
 <script>
 
-let startTime=0;
-let fcTime=null;
-let endTime=null;
-let timerInterval=null;
-let chart=null;
-let recognition=null;
+let recognition = null;
+let listening = false;
+
+let startTime = 0;
+let fcTime = null;
+let endTime = null;
+let timer = null;
+let temperature = null;
+
+let chart = null;
 
 /* INIT */
-window.onload=function(){
+window.onload = function(){
 
-chart=new Chart(
+chart = new Chart(
 document.getElementById("chart"),
 {
 type:"line",
 data:{
 labels:[],
-datasets:[{
-data:[],
-borderColor:"#ffcc00"
-}]
+datasets:[{data:[],borderColor:"#ffcc00"}]
 }
 }
 );
@@ -112,80 +112,89 @@ borderColor:"#ffcc00"
 document.getElementById("status").innerText="Ready";
 };
 
-/* VOICE */
+/* TIMER */
+function startTimer(){
+clearInterval(timer);
+timer = setInterval(()=>{
+if(!startTime)return;
+let s = Math.floor((Date.now()-startTime)/1000);
+document.getElementById("timer").innerText =
+Math.floor(s/60)+":"+String(s%60).padStart(2,"0");
+},1000);
+}
+
+/* VOICE INIT */
 function initVoice(){
 
-const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
-
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 if(!SR){
 alert("Speech not supported");
 return;
 }
 
-recognition=new SR();
-recognition.lang="en-US";
+recognition = new SR();
+recognition.lang = "en-US";
+recognition.continuous = true;
 
-recognition.onresult=(e)=>{
-const text=e.results[0][0].transcript.toLowerCase();
-document.getElementById("status").innerText="Heard: "+text;
+recognition.onresult = (e)=>{
+const text = e.results[e.results.length-1][0].transcript.toLowerCase();
+document.getElementById("status").innerText = "Heard: " + text;
 
+/* TEMPERATURE */
+if(text.includes("temperature") || text.includes("temp")){
+let num = text.match(/\d+/);
+if(num){
+temperature = num[0];
+document.getElementById("status").innerText =
+"Temp set: " + temperature;
+}
+}
+
+/* FIRST CRACK */
 if(text.includes("first crack")){
 markFirstCrack();
+}
+
+/* END ROAST */
+if(text.includes("end roast")){
+endRoast();
 }
 };
 
 recognition.start();
+listening = true;
+
 document.getElementById("status").innerText="Voice active";
 }
 
-/* START ROAST (TEMP RESTORED) */
+/* START ROAST */
 function startRoast(){
 
-// 🔥 THIS IS THE ONLY RESTORED FEATURE
-let temp = prompt("Enter temperature:");
-
-startTime=Date.now();
-fcTime=null;
-endTime=null;
-
-chart.data.labels=[];
-chart.data.datasets[0].data=[];
-chart.update();
+startTime = Date.now();
+fcTime = null;
+endTime = null;
+temperature = null;
 
 startTimer();
 
-document.getElementById("status").innerText=
-"Roast started at " + temp + "°";
-}
+/* IMPORTANT: no prompt anymore */
 
-/* TIMER */
-function startTimer(){
-
-clearInterval(timerInterval);
-
-timerInterval=setInterval(()=>{
-if(!startTime)return;
-
-let s=Math.floor((Date.now()-startTime)/1000);
-
-document.getElementById("timer").innerText=
-Math.floor(s/60)+":"+String(s%60).padStart(2,"0");
-
-},1000);
+document.getElementById("status").innerText =
+"Roast started. Say temperature...";
 }
 
 /* FIRST CRACK */
 function markFirstCrack(){
 if(!startTime)return;
-
-fcTime=Date.now();
+fcTime = Date.now();
 document.getElementById("status").innerText="First Crack";
 }
 
 /* END ROAST */
 function endRoast(){
-endTime=Date.now();
-document.getElementById("status").innerText="Roast complete";
+endTime = Date.now();
+document.getElementById("status").innerText =
+"Complete. Temp: " + temperature;
 }
 
 </script>
