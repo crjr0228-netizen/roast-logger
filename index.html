@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="utf-8">
-<title>Roast Mode Pro (v3.1 Data Fix)</title>
+<title>Roast Mode Pro (v3.2 Voice Prompt Loop)</title>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
@@ -44,7 +44,7 @@ cursor:pointer;
 .blue{background:#1f4f7a;color:white;}
 .green{background:#1f7a1f;color:white;}
 .orange{background:#b36b00;color:white;}
-.red{background:#7a1f1f;color:white;}
+.red{background:#7a1f7a;color:white;}
 
 #timer{
 font-size:40px;
@@ -82,14 +82,12 @@ let recognition;
 let chart;
 
 let startTime=0;
-let fcTime=null;
-let endTime=null;
-
 let temp=0;
-let tempLog=[];
-let timeLog=[];
-let tempInterval;
+
 let timerInterval;
+let tempPromptInterval;
+
+let listening=false;
 
 /* ===== INIT ===== */
 window.onload=function(){
@@ -98,35 +96,42 @@ chart=new Chart(document.getElementById("chart"),{
 type:"line",
 data:{
 labels:[],
-datasets:[
-{
+datasets:[{
 label:"Temp",
 data:[],
 borderColor:"#ffcc00"
-},
-{
-label:"RoR",
-data:[],
-borderColor:"#ff4444"
-}
-]
+}]
 }
 });
 
 document.getElementById("status").innerText="Ready";
 };
 
-/* ===== SPEECH ===== */
-function speak(t){
-speechSynthesis.cancel();
-speechSynthesis.speak(new SpeechSynthesisUtterance(t));
+/* ===== SPEECH OUTPUT ===== */
+function speak(text){
+window.speechSynthesis.cancel();
+window.speechSynthesis.speak(new SpeechSynthesisUtterance(text));
+}
+
+/* ===== TIMER ===== */
+function startTimer(){
+clearInterval(timerInterval);
+
+timerInterval=setInterval(()=>{
+let s=Math.floor((Date.now()-startTime)/1000);
+document.getElementById("timer").innerText=
+Math.floor(s/60)+":"+String(s%60).padStart(2,"0");
+},1000);
 }
 
 /* ===== VOICE ===== */
 function initVoice(){
 
 const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
-if(!SR){alert("No speech support");return;}
+if(!SR){
+alert("Speech not supported");
+return;
+}
 
 recognition=new SR();
 recognition.lang="en-US";
@@ -135,7 +140,7 @@ recognition.continuous=true;
 recognition.onresult=(e)=>{
 const text=e.results[e.results.length-1][0].transcript.toLowerCase();
 
-document.getElementById("status").innerText=text;
+document.getElementById("status").innerText="Heard: "+text;
 
 /* TEMP */
 if(text.includes("temp")||text.includes("temperature")){
@@ -157,6 +162,8 @@ endRoast();
 };
 
 recognition.start();
+listening=true;
+
 document.getElementById("status").innerText="Voice active";
 }
 
@@ -165,70 +172,30 @@ function startRoast(){
 
 startTime=Date.now();
 temp=0;
-tempLog=[];
-timeLog=[];
 
 startTimer();
 
-/* 🔥 RESTORED 30s LOOP */
-clearInterval(tempInterval);
-tempInterval=setInterval(()=>{
-if(temp>0){
-logTemp();
-}
+/* 🔥 RESTORED 30s VOICE PROMPT LOOP */
+clearInterval(tempPromptInterval);
+tempPromptInterval=setInterval(()=>{
+speak("temperature");
 },30000);
 
 speak("Roast started");
 document.getElementById("status").innerText="Running";
 }
 
-/* ===== LOG DATA ===== */
-function logTemp(){
-
-let t=(Date.now()-startTime)/1000;
-
-tempLog.push(temp);
-timeLog.push(t);
-
-/* RoR */
-let ror=0;
-if(tempLog.length>1){
-let dt=timeLog[timeLog.length-1]-timeLog[timeLog.length-2];
-let dT=tempLog[tempLog.length-1]-tempLog[tempLog.length-2];
-ror=dT/dt;
-}
-
-chart.data.labels.push(Math.round(t));
-chart.data.datasets[0].data.push(temp);
-chart.data.datasets[1].data.push(ror);
-
-chart.update();
-}
-
-/* ===== TIMER ===== */
-function startTimer(){
-clearInterval(timerInterval);
-
-timerInterval=setInterval(()=>{
-let s=Math.floor((Date.now()-startTime)/1000);
-document.getElementById("timer").innerText=
-Math.floor(s/60)+":"+String(s%60).padStart(2,"0");
-},1000);
-}
-
 /* ===== FIRST CRACK ===== */
 function markFirstCrack(){
-fcTime=Date.now();
-speak("First crack");
 document.getElementById("status").innerText="First Crack";
+speak("First crack");
 }
 
-/* ===== END ===== */
+/* ===== END ROAST ===== */
 function endRoast(){
-endTime=Date.now();
-clearInterval(tempInterval);
+clearInterval(tempPromptInterval);
+document.getElementById("status").innerText="Complete";
 speak("Roast complete");
-document.getElementById("status").innerText="Done";
 }
 
 </script>
