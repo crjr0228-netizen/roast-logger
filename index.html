@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="utf-8">
-<title>Roast Mode Pro (v7)</title>
+<title>Roast Mode Pro (Clean Reset)</title>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
@@ -16,15 +16,34 @@ text-align:center;
 }
 
 h1{margin:10px;}
-#version{color:#888;font-size:14px;}
-#status{margin:8px;padding:8px;background:#111;border-radius:8px;}
+
+#version{
+font-size:14px;
+color:#888;
+margin-bottom:5px;
+}
+
+#status{
+margin:10px;
+padding:8px;
+background:#111;
+border-radius:8px;
+}
+
+.row{
+display:flex;
+justify-content:center;
+flex-wrap:wrap;
+gap:10px;
+margin:10px;
+}
 
 button{
 font-size:20px;
 padding:14px 18px;
 min-width:170px;
-border:none;
 border-radius:12px;
+border:none;
 cursor:pointer;
 }
 
@@ -33,20 +52,25 @@ cursor:pointer;
 .red{background:#7a1f1f;color:white;}
 .blue{background:#1f4f7a;color:white;}
 
-.row{display:flex;justify-content:center;flex-wrap:wrap;gap:10px;margin:10px;}
+#timer{
+font-size:40px;
+margin:10px;
+}
 
-#timer{font-size:40px;}
-
-canvas{max-width:95%;background:#111;border-radius:10px;}
-
-#timeline{margin:15px;color:#bbb;font-size:14px;}
+canvas{
+max-width:95%;
+background:#111;
+border-radius:10px;
+}
 </style>
 </head>
 
 <body>
 
 <h1>Roast Mode Pro</h1>
-<div id="version">v7</div>
+
+<!-- VERSION LABEL (ONLY CHANGE) -->
+<div id="version">v1.1</div>
 
 <div id="status">Ready</div>
 
@@ -61,101 +85,113 @@ canvas{max-width:95%;background:#111;border-radius:10px;}
 
 <canvas id="chart"></canvas>
 
-<div id="timeline"></div>
-
 <script>
 
-let startTime=0;
-let fcTime=null;
-let endTime=null;
-let tempInterval=null;
-let chart=null;
-let roastTemp=0;
+/* ===== STATE ===== */
+let startTime = 0;
+let fcTime = null;
+let endTime = null;
+let timerInterval = null;
+let chart = null;
+let recognition = null;
+let voiceOn = false;
 
-/* INIT */
-window.onload=function(){
-chart=new Chart(
+/* ===== INIT ===== */
+window.onload = function () {
+
+chart = new Chart(
 document.getElementById("chart"),
 {
 type:"line",
-data:{labels:[],datasets:[{data:[],borderColor:"#ffcc00"}]}
+data:{
+labels:[],
+datasets:[{
+data:[],
+borderColor:"#ffcc00"
+}]
+}
 }
 );
-document.getElementById("status").innerText="Ready";
+
+document.getElementById("status").innerText = "Ready";
 };
 
-/* TIMER SPEECH FIX */
-function speak(msg){
-speechSynthesis.cancel();
-speechSynthesis.speak(new SpeechSynthesisUtterance(msg));
+/* ===== VOICE ===== */
+function initVoice(){
+
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+if(!SR){
+alert("Speech not supported in this browser");
+return;
 }
 
-/* START ROAST */
+recognition = new SR();
+recognition.lang = "en-US";
+
+recognition.onresult = (e)=>{
+const text = e.results[0][0].transcript.toLowerCase();
+document.getElementById("status").innerText = "Heard: " + text;
+
+if(text.includes("first crack")){
+markFirstCrack();
+}
+};
+
+recognition.start();
+voiceOn = true;
+
+document.getElementById("status").innerText = "Voice active";
+}
+
+/* ===== START ROAST ===== */
 function startRoast(){
 
-roastTemp=parseFloat(prompt("Enter starting temperature:"));
+startTime = Date.now();
+fcTime = null;
+endTime = null;
 
-startTime=Date.now();
-fcTime=null;
-endTime=null;
+chart.data.labels = [];
+chart.data.datasets[0].data = [];
+chart.update();
 
 startTimer();
 
-clearInterval(tempInterval);
-tempInterval=setInterval(()=>{
-speak("Current temperature?");
-},30000);
-
-speak("Roast started at "+roastTemp+" degrees");
-
-document.getElementById("status").innerText="Running";
+document.getElementById("status").innerText = "Roast started";
 }
 
-/* TIMER */
+/* ===== TIMER ===== */
 function startTimer(){
-setInterval(()=>{
+
+clearInterval(timerInterval);
+
+timerInterval = setInterval(()=>{
 if(!startTime)return;
-let s=Math.floor((Date.now()-startTime)/1000);
-document.getElementById("timer").innerText=
-Math.floor(s/60)+":"+String(s%60).padStart(2,"0");
+
+let s = Math.floor((Date.now() - startTime)/1000);
+
+document.getElementById("timer").innerText =
+Math.floor(s/60) + ":" + String(s%60).padStart(2,"0");
+
 },1000);
 }
 
-/* FIRST CRACK */
+/* ===== FIRST CRACK ===== */
 function markFirstCrack(){
-fcTime=Date.now();
-document.getElementById("status").innerText="First Crack";
-updateTimeline();
+
+if(!startTime)return;
+
+fcTime = Date.now();
+
+document.getElementById("status").innerText = "First Crack";
 }
 
-/* END */
+/* ===== END ROAST ===== */
 function endRoast(){
-endTime=Date.now();
-updateTimeline();
-speak("Roast complete");
-}
 
-/* TIMELINE RESTORED PROPERLY */
-function updateTimeline(){
+endTime = Date.now();
 
-if(!fcTime||!endTime)return;
-
-let dev=(endTime-fcTime)/1000;
-
-let marks=[15,17.5,20,22.5,25];
-
-document.getElementById("timeline").innerHTML=
-"<b>Development Timeline</b><br>"+
-marks.map(p=>{
-let t=(p/100)*dev;
-return p+"% → "+format(t);
-}).join("<br>");
-}
-
-/* FORMAT */
-function format(s){
-s=Math.floor(s);
-return Math.floor(s/60)+":"+String(s%60).padStart(2,"0");
+document.getElementById("status").innerText = "Roast complete";
 }
 
 </script>
