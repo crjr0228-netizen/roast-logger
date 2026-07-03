@@ -1,144 +1,75 @@
-let recognition;
-let voiceReady = false;
-
 let startTime = 0;
 let firstCrackTime = null;
 let dropTime = null;
 
-let timerInt;
-let stripInt;
+let chart;
 
-// ---------------- START VOICE ----------------
+const ctx = document.getElementById("chart").getContext("2d");
 
-function initVoice() {
-  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-
-  recognition = new SR();
-  recognition.lang = "en-US";
-  recognition.continuous = true;
-
-  recognition.onresult = (e) => {
-    const text = e.results[e.results.length - 1][0].transcript.toLowerCase();
-    handleSpeech(text);
-  };
-
-  recognition.start();
-
-  document.getElementById("status").innerText = "Ready";
-  voiceReady = true;
-  document.getElementById("startBtn").disabled = false;
-
-  speak("Ready");
-}
-
-// ---------------- START ROAST ----------------
+chart = new Chart(ctx, {
+  type: "line",
+  data: {
+    labels: [],
+    datasets: [{
+      label: "Temp",
+      data: [],
+      borderColor: "#ffcc00",
+      tension: 0.3
+    }]
+  }
+});
 
 function startRoast() {
   startTime = Date.now();
   firstCrackTime = null;
   dropTime = null;
 
-  document.getElementById("date").innerText =
-    new Date().toLocaleDateString();
-
-  timerInt = setInterval(updateTimer, 1000);
-  stripInt = setInterval(updateDevStrip, 300);
-}
-
-// ---------------- TIMER ----------------
-
-function updateTimer() {
-  document.getElementById("timer").innerText =
-    formatTime((Date.now() - startTime) / 1000);
-}
-
-// ---------------- FIRST CRACK ----------------
-
-function markFirstCrackManual() {
-  markFirstCrack();
+  document.getElementById("devStrip").innerText =
+    "Waiting for First Crack...";
 }
 
 function markFirstCrack() {
-  if (!startTime) return;
-
   firstCrackTime = Date.now();
 
-  document.getElementById("fcTime").innerText =
-    formatTime((firstCrackTime - startTime) / 1000);
-
-  speak("First crack");
+  document.getElementById("fc").innerText =
+    format(Date.now() - startTime);
 }
-
-// ---------------- STOP (DROP) ----------------
 
 function stopRoast() {
   dropTime = Date.now();
 
-  clearInterval(timerInt);
-  clearInterval(stripInt);
+  const devWindow = dropTime - firstCrackTime;
 
-  const total = (dropTime - startTime) / 1000;
-  const dev = firstCrackTime
-    ? (dropTime - firstCrackTime) / 1000
-    : 0;
+  document.getElementById("drop").innerText =
+    format(devWindow);
 
-  document.getElementById("totalTime").innerText = formatTime(total);
-  document.getElementById("devTime").innerText = formatTime(dev);
+  document.getElementById("dev").innerText =
+    format(devWindow);
 
-  document.getElementById("devPct").innerText =
-    firstCrackTime ? ((dev / total) * 100).toFixed(1) + "%" : "--";
-
-  speak("Roast complete");
+  renderDevStrip(devWindow);
 }
 
-// ---------------- 🔥 GUARANTEED DEV STRIP ----------------
+// 🔥 THIS IS THE FIXED CORE
+function renderDevStrip(devWindow) {
 
-function updateDevStrip() {
-
-  const el = document.getElementById("devStrip");
-
-  if (!firstCrackTime) {
-    el.innerText = "Waiting for First Crack...";
-    return;
-  }
-
-  const now = dropTime || Date.now();
-
-  const devSec = (now - firstCrackTime) / 1000;
-
-  // FIXED ORIGINAL MILESTONES
   const milestones = [15, 17.5, 20, 22.5, 25];
 
-  let output = "";
+  const output = milestones.map(pct => {
 
-  for (let i = 0; i < milestones.length; i++) {
-    const pct = milestones[i];
-    const time = (pct / 100) * devSec;
+    const ms = firstCrackTime + (pct / 100) * devWindow;
 
-    output += `${pct}% (${formatTime(time)})`;
+    const secFromFC = (ms - firstCrackTime) / 1000;
 
-    if (i < milestones.length - 1) output += "   |   ";
-  }
+    return `${pct}% (${format(secFromFC * 1000)})`;
 
-  el.innerText = output;
+  }).join(" | ");
+
+  document.getElementById("devStrip").innerText = output;
 }
 
-// ---------------- SPEECH ----------------
-
-function handleSpeech(text) {
-  if (text.includes("first crack")) {
-    markFirstCrack();
-  }
-}
-
-// ---------------- HELPERS ----------------
-
-function speak(t) {
-  speechSynthesis.cancel();
-  speechSynthesis.speak(new SpeechSynthesisUtterance(t));
-}
-
-function formatTime(sec) {
-  sec = Math.floor(sec);
-  return `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, "0")}`;
+function format(ms) {
+  let sec = Math.floor(ms / 1000);
+  let m = Math.floor(sec / 60);
+  let s = sec % 60;
+  return `${m}:${String(s).padStart(2, "0")}`;
 }
