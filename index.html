@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="utf-8">
-<title>Roast OS Pro v1.1</title>
+<title>Roast OS Pro v1.2</title>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
@@ -66,7 +66,7 @@ border-radius:10px;
 
 <body>
 
-<h1>Roast OS Pro v1.1</h1>
+<h1>Roast OS Pro v1.2</h1>
 
 <div id="status">Ready</div>
 <div id="tempDisplay">Temp: --</div>
@@ -86,11 +86,29 @@ border-radius:10px;
 
 let recognition;
 let chart;
+
 let startTime = 0;
 let timer;
-let roastBeep;
+let beepTimer;
 let session = false;
 
+let wakeLock = null;
+
+/* ================= WAKE LOCK ================= */
+async function enableWakeLock(){
+try {
+if ("wakeLock" in navigator) {
+wakeLock = await navigator.wakeLock.request("screen");
+wakeLock.addEventListener("release", () => {
+console.log("Wake Lock released");
+});
+}
+} catch (e) {
+console.log("WakeLock error:", e);
+}
+}
+
+/* ================= INIT ================= */
 window.onload = function(){
 
 chart = new Chart(document.getElementById("chart"),{
@@ -127,13 +145,15 @@ recognition.start();
 document.getElementById("status").innerText="Voice Ready";
 }
 
-/* ================= START ================= */
+/* ================= START ROAST ================= */
 function startRoast(){
 
 session = true;
 startTime = Date.now();
 
 document.getElementById("status").innerText="Running";
+
+enableWakeLock();
 
 /* timer */
 timer = setInterval(()=>{
@@ -142,22 +162,27 @@ document.getElementById("timer").innerText =
 Math.floor(t/60)+":"+String(t%60).padStart(2,"0");
 },1000);
 
-/* 🔥 REPLACED ASK TEMP WITH BEEP */
-roastBeep = setInterval(()=>{
+/* 🔔 30 SECOND BEEP LOOP */
+beepTimer = setInterval(()=>{
 beep();
 },30000);
+
 }
 
 /* ================= BEEP ================= */
 function beep(){
+
 let ctx = new (window.AudioContext || window.webkitAudioContext)();
 let osc = ctx.createOscillator();
-osc.frequency.value = 800;
+
+osc.type = "sine";
+osc.frequency.value = 880;
+
 osc.connect(ctx.destination);
 osc.start();
 osc.stop(ctx.currentTime + 0.15);
 
-document.getElementById("status").innerText = "BEEP";
+document.getElementById("status").innerText="BEEP";
 }
 
 /* ================= SPEECH ================= */
@@ -180,7 +205,7 @@ let t = Math.floor((Date.now()-startTime)/1000);
 chart.data.labels.push(t);
 chart.data.datasets[0].data.push(temp);
 
-/* 🔥 FIXED ROR */
+/* RoR */
 let temps = chart.data.datasets[0].data;
 let times = chart.data.labels;
 
@@ -205,11 +230,14 @@ document.getElementById("status").innerText="First Crack 🔥";
 function stopRoast(){
 session=false;
 clearInterval(timer);
-clearInterval(roastBeep);
+clearInterval(beepTimer);
+
+if (wakeLock) wakeLock.release();
+
 document.getElementById("status").innerText="Stopped";
 }
 
-/* ================= PARSE ================= */
+/* ================= PARSER ================= */
 function parseNumber(text){
 let m = text.match(/\d+/g);
 return m ? parseInt(m[m.length-1]) : null;
