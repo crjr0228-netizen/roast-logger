@@ -2,7 +2,6 @@
 <html>
 <head>
   <title>Roast Mode Pro</title>
-
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
   <style>
@@ -19,6 +18,7 @@
     .row {
       display: flex;
       justify-content: center;
+      flex-wrap: wrap;
       gap: 10px;
       margin: 10px;
     }
@@ -35,6 +35,7 @@
     .green { background: #1f7a1f; color: white; }
     .orange { background: #b36b00; color: white; }
     .red { background: #7a1f1f; color: white; }
+    .blue { background: #1f4f7a; color: white; }
 
     canvas {
       max-width: 95%;
@@ -49,6 +50,12 @@
       border-radius: 8px;
       font-size: 14px;
       color: #ddd;
+      min-height: 20px;
+    }
+
+    #timer {
+      font-size: 40px;
+      margin: 10px;
     }
   </style>
 </head>
@@ -58,9 +65,10 @@
 <h1>Roast Mode Pro</h1>
 
 <div class="row">
+  <button class="blue" onclick="initVoice()">Initialize Voice</button>
   <button class="green" onclick="startRoast()">Start Roast</button>
   <button class="orange" onclick="markFirstCrack()">First Crack</button>
-  <button class="red" onclick="stopRoast()">Stop</button>
+  <button class="red" onclick="stopRoast()">Drop</button>
 </div>
 
 <div id="timer">00:00</div>
@@ -69,9 +77,9 @@
 
 <div id="devStrip">Waiting for First Crack...</div>
 
-<div>
+<div style="margin-top:10px;">
   <div>FC: <span id="fc">--</span></div>
-  <div>Dev: <span id="dev">--</span></div>
+  <div>Dev Time: <span id="dev">--</span></div>
   <div>Dev %: <span id="devPct">--</span></div>
 </div>
 
@@ -80,33 +88,70 @@ let startTime = 0;
 let firstCrackTime = null;
 let dropTime = null;
 
-let chart;
+let voiceReady = false;
+let recognition = null;
+let roastInterval = null;
 
-// 🔥 WAIT FOR DOM SAFELY
-window.onload = function () {
+// ---------------- CHART ----------------
 
-  const canvas = document.getElementById("chart");
+const ctx = document.getElementById("chart").getContext("2d");
 
-  if (!canvas) {
-    console.error("Canvas missing");
+const chart = new Chart(ctx, {
+  type: "line",
+  data: {
+    labels: [],
+    datasets: [{
+      label: "Temp",
+      data: [],
+      borderColor: "#ffcc00",
+      tension: 0.3
+    }]
+  }
+});
+
+// ---------------- INIT VOICE ----------------
+
+function initVoice() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+  if (!SR) {
+    alert("Speech Recognition not supported");
     return;
   }
 
-  const ctx = canvas.getContext("2d");
+  recognition = new SR();
+  recognition.lang = "en-US";
+  recognition.interimResults = false;
 
-  chart = new Chart(ctx, {
-    type: "line",
-    data: {
-      labels: [],
-      datasets: [{
-        label: "Temp",
-        data: [],
-        borderColor: "#ffcc00",
-        tension: 0.3
-      }]
+  recognition.onresult = (e) => {
+    const text = e.results[0][0].transcript.toLowerCase();
+    console.log("VOICE:", text);
+
+    if (text.includes("first crack")) {
+      markFirstCrack();
     }
-  });
-};
+
+    const match = text.match(/\d+/);
+    if (match && startTime) {
+      logTemp(parseInt(match[0]));
+    }
+  };
+
+  recognition.onend = () => {
+    if (voiceReady) recognition.start();
+  };
+
+  recognition.onerror = () => {
+    // ignore
+  };
+
+  voiceReady = true;
+
+  recognition.start();
+
+  document.getElementById("devStrip").innerText =
+    "Voice Initialized";
+}
 
 // ---------------- START ----------------
 
@@ -121,6 +166,26 @@ function startRoast() {
 
   document.getElementById("devStrip").innerText =
     "Waiting for First Crack...";
+
+  // 30-second voice loop
+  roastInterval = setInterval(() => {
+    speak("Temperature check");
+    if (recognition && voiceReady) {
+      try { recognition.start(); } catch(e) {}
+    }
+  }, 30000);
+
+  startTimer();
+}
+
+// ---------------- TIMER ----------------
+
+function startTimer() {
+  setInterval(() => {
+    if (!startTime) return;
+    const sec = (Date.now() - startTime) / 1000;
+    document.getElementById("timer").innerText = format(sec);
+  }, 1000);
 }
 
 // ---------------- FIRST CRACK ----------------
@@ -134,12 +199,15 @@ function markFirstCrack() {
   document.getElementById("fc").innerText = format(fc);
 
   updateDevStrip();
+  speak("First crack");
 }
 
-// ---------------- STOP ----------------
+// ---------------- DROP ----------------
 
 function stopRoast() {
   dropTime = Date.now();
+
+  clearInterval(roastInterval);
 
   const total = (dropTime - startTime) / 1000;
   const dev = firstCrackTime
@@ -153,7 +221,7 @@ function stopRoast() {
   updateDevStrip();
 }
 
-// ---------------- 🔥 DEV STRIP (STABLE) ----------------
+// ---------------- DEV STRIP (FIXED MILESTONES) ----------------
 
 function updateDevStrip() {
   if (!firstCrackTime) return;
@@ -168,20 +236,26 @@ function updateDevStrip() {
     ).join(" | ");
 }
 
-// ---------------- TEMP TEST ----------------
+// ---------------- TEMP ----------------
 
-// click anywhere to simulate data so chart proves it works
-document.body.addEventListener("click", () => {
-  if (!chart || !startTime) return;
+function logTemp(temp) {
+  if (!startTime) return;
 
   const t = (Date.now() - startTime) / 1000;
 
   chart.data.labels.push(Math.floor(t));
-  chart.data.datasets[0].data.push(180 + Math.random() * 30);
+  chart.data.datasets[0].data.push(temp);
   chart.update();
-});
+}
 
-// ---------------- HELPERS ----------------
+// ---------------- SPEAK ----------------
+
+function speak(text) {
+  speechSynthesis.cancel();
+  speechSynthesis.speak(new SpeechSynthesisUtterance(text));
+}
+
+// ---------------- FORMAT ----------------
 
 function format(sec) {
   sec = Math.floor(sec);
