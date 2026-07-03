@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="utf-8">
-<title>Roast Mode Pro (Voice v2)</title>
+<title>Roast Mode Pro (Stable Voice Build)</title>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
@@ -20,6 +20,7 @@ h1{margin:10px;}
 #version{
 font-size:14px;
 color:#888;
+margin-bottom:5px;
 }
 
 #status{
@@ -67,9 +68,9 @@ border-radius:10px;
 <body>
 
 <h1>Roast Mode Pro</h1>
-<div id="version">v2.0 VOICE CORE</div>
+<div id="version">v3.0</div>
 
-<div id="status">Ready</div>
+<div id="status">Loading...</div>
 
 <div class="row">
 <button class="blue" onclick="initVoice()">Init Voice</button>
@@ -84,19 +85,35 @@ border-radius:10px;
 
 <script>
 
+/* ================= STATE ================= */
 let recognition = null;
 let listening = false;
 
 let startTime = 0;
 let fcTime = null;
 let endTime = null;
-let timer = null;
-let temperature = null;
 
+let timerInterval = null;
 let chart = null;
 
-/* INIT */
-window.onload = function(){
+let temperature = null;
+
+/* ================= SPEECH (FIXED) ================= */
+function speak(text){
+try{
+window.speechSynthesis.cancel();
+const msg = new SpeechSynthesisUtterance(text);
+msg.rate = 1;
+msg.pitch = 1;
+msg.volume = 1;
+window.speechSynthesis.speak(msg);
+}catch(e){
+console.log("Speech error", e);
+}
+}
+
+/* ================= INIT ================= */
+window.onload=function(){
 
 chart = new Chart(
 document.getElementById("chart"),
@@ -104,7 +121,10 @@ document.getElementById("chart"),
 type:"line",
 data:{
 labels:[],
-datasets:[{data:[],borderColor:"#ffcc00"}]
+datasets:[{
+data:[],
+borderColor:"#ffcc00"
+}]
 }
 }
 );
@@ -112,41 +132,47 @@ datasets:[{data:[],borderColor:"#ffcc00"}]
 document.getElementById("status").innerText="Ready";
 };
 
-/* TIMER */
+/* ================= TIMER ================= */
 function startTimer(){
-clearInterval(timer);
-timer = setInterval(()=>{
+clearInterval(timerInterval);
+
+timerInterval=setInterval(()=>{
 if(!startTime)return;
-let s = Math.floor((Date.now()-startTime)/1000);
-document.getElementById("timer").innerText =
+
+let s=Math.floor((Date.now()-startTime)/1000);
+
+document.getElementById("timer").innerText=
 Math.floor(s/60)+":"+String(s%60).padStart(2,"0");
 },1000);
 }
 
-/* VOICE INIT */
+/* ================= VOICE ================= */
 function initVoice(){
 
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+
 if(!SR){
-alert("Speech not supported");
+alert("Speech Recognition not supported");
 return;
 }
 
 recognition = new SR();
-recognition.lang = "en-US";
-recognition.continuous = true;
+recognition.lang="en-US";
+recognition.continuous=true;
+recognition.interimResults=false;
 
-recognition.onresult = (e)=>{
-const text = e.results[e.results.length-1][0].transcript.toLowerCase();
-document.getElementById("status").innerText = "Heard: " + text;
+recognition.onresult=(e)=>{
+const text=e.results[e.results.length-1][0].transcript.toLowerCase();
+
+document.getElementById("status").innerText="Heard: "+text;
 
 /* TEMPERATURE */
-if(text.includes("temperature") || text.includes("temp")){
-let num = text.match(/\d+/);
+if(text.includes("temp") || text.includes("temperature")){
+const num = text.match(/\d+/);
 if(num){
-temperature = num[0];
-document.getElementById("status").innerText =
-"Temp set: " + temperature;
+temperature=num[0];
+speak("Temperature set to " + temperature);
+document.getElementById("status").innerText="Temp: "+temperature;
 }
 }
 
@@ -155,46 +181,53 @@ if(text.includes("first crack")){
 markFirstCrack();
 }
 
-/* END ROAST */
+/* END */
 if(text.includes("end roast")){
 endRoast();
 }
 };
 
 recognition.start();
-listening = true;
+listening=true;
 
 document.getElementById("status").innerText="Voice active";
+speak("Voice system ready");
 }
 
-/* START ROAST */
+/* ================= START ROAST ================= */
 function startRoast(){
 
-startTime = Date.now();
-fcTime = null;
-endTime = null;
-temperature = null;
+startTime=Date.now();
+fcTime=null;
+endTime=null;
+temperature=null;
 
 startTimer();
 
-/* IMPORTANT: no prompt anymore */
+document.getElementById("status").innerText="Roast started";
 
-document.getElementById("status").innerText =
-"Roast started. Say temperature...";
+speak("Roast started. Waiting for temperature.");
 }
 
-/* FIRST CRACK */
+/* ================= FIRST CRACK ================= */
 function markFirstCrack(){
 if(!startTime)return;
-fcTime = Date.now();
+
+fcTime=Date.now();
+
 document.getElementById("status").innerText="First Crack";
+
+speak("First crack recorded");
 }
 
-/* END ROAST */
+/* ================= END ROAST ================= */
 function endRoast(){
-endTime = Date.now();
-document.getElementById("status").innerText =
-"Complete. Temp: " + temperature;
+
+endTime=Date.now();
+
+document.getElementById("status").innerText="Roast complete";
+
+speak("Roast complete");
 }
 
 </script>
