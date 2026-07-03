@@ -3,19 +3,64 @@
 <head>
   <title>Roast Mode Pro</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <link rel="stylesheet" href="style.css">
+
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial;
+      background: #0b0b0b;
+      color: white;
+      text-align: center;
+    }
+
+    h1 { margin: 10px; }
+
+    .row {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      margin: 10px;
+    }
+
+    button {
+      font-size: 22px;
+      padding: 16px 22px;
+      min-width: 180px;
+      border-radius: 12px;
+      border: none;
+      cursor: pointer;
+    }
+
+    .green { background: #1f7a1f; color: white; }
+    .orange { background: #b36b00; color: white; }
+    .red { background: #7a1f1f; color: white; }
+
+    canvas {
+      max-width: 95%;
+      background: #111;
+      border-radius: 10px;
+    }
+
+    #devStrip {
+      margin: 10px;
+      padding: 10px;
+      background: #111;
+      border-radius: 8px;
+      font-size: 14px;
+      color: #ddd;
+      min-height: 20px;
+    }
+  </style>
 </head>
 
 <body>
 
 <h1>Roast Mode Pro</h1>
 
-<div id="status">Click Start</div>
-
 <div class="row">
   <button class="green" onclick="startRoast()">Start Roast</button>
   <button class="orange" onclick="markFirstCrack()">First Crack</button>
-  <button class="red" onclick="stopRoast()">Stop Roast</button>
+  <button class="red" onclick="stopRoast()">Stop</button>
 </div>
 
 <div id="timer">00:00</div>
@@ -24,13 +69,99 @@
 
 <div id="devStrip">Waiting for First Crack...</div>
 
-<div class="summary">
+<div>
   <div>FC: <span id="fc">--</span></div>
   <div>Dev: <span id="dev">--</span></div>
   <div>Dev %: <span id="devPct">--</span></div>
 </div>
 
-<script src="app.js"></script>
+<script>
+let startTime = 0;
+let firstCrackTime = null;
+let dropTime = null;
+
+const ctx = document.getElementById("chart").getContext("2d");
+
+const chart = new Chart(ctx, {
+  type: "line",
+  data: {
+    labels: [],
+    datasets: [{
+      label: "Temp",
+      data: [],
+      borderColor: "#ffcc00",
+      tension: 0.3
+    }]
+  }
+});
+
+// START
+function startRoast() {
+  startTime = Date.now();
+  firstCrackTime = null;
+  dropTime = null;
+
+  chart.data.labels = [];
+  chart.data.datasets[0].data = [];
+  chart.update();
+
+  document.getElementById("devStrip").innerText =
+    "Waiting for First Crack...";
+}
+
+// FIRST CRACK
+function markFirstCrack() {
+  firstCrackTime = Date.now();
+
+  const fc = (firstCrackTime - startTime) / 1000;
+  document.getElementById("fc").innerText = format(fc);
+
+  updateDevStrip();
+}
+
+// STOP
+function stopRoast() {
+  dropTime = Date.now();
+
+  const total = (dropTime - startTime) / 1000;
+  const dev = firstCrackTime
+    ? (dropTime - firstCrackTime) / 1000
+    : 0;
+
+  document.getElementById("dev").innerText = format(dev);
+  document.getElementById("devPct").innerText =
+    firstCrackTime ? ((dev / total) * 100).toFixed(1) + "%" : "--";
+
+  updateDevStrip();
+}
+
+// 🔥 DEV STRIP (CORRECT + SIMPLE + RELIABLE)
+function updateDevStrip() {
+  if (!firstCrackTime) return;
+
+  const devSec = ((dropTime || Date.now()) - firstCrackTime) / 1000;
+
+  const milestones = [15, 17.5, 20, 22.5, 25];
+
+  document.getElementById("devStrip").innerText =
+    milestones.map(p => `${p}% (${format((p / 100) * devSec)})`).join(" | ");
+}
+
+// OPTIONAL TEMP TEST (click to simulate data)
+document.body.addEventListener("click", () => {
+  const t = (Date.now() - startTime) / 1000;
+  if (startTime) {
+    chart.data.labels.push(Math.floor(t));
+    chart.data.datasets[0].data.push(200 + Math.random() * 20);
+    chart.update();
+  }
+});
+
+function format(sec) {
+  sec = Math.floor(sec);
+  return `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2,"0")}`;
+}
+</script>
 
 </body>
 </html>
