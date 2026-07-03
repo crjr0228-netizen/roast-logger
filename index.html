@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="utf-8">
-<title>Roast Mode Pro (Stable Voice + Chart)</title>
+<title>Roast Mode Pro (Beep + Visual Stable)</title>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
@@ -29,6 +29,18 @@ min-height:20px;
 font-size:22px;
 margin:5px;
 color:#ffcc00;
+}
+
+#prompt{
+font-size:28px;
+margin:10px;
+color:#666;
+transition:0.2s;
+}
+
+#prompt.active{
+color:#ff4444;
+transform:scale(1.2);
 }
 
 .row{
@@ -68,10 +80,12 @@ border-radius:10px;
 
 <body>
 
-<h1>Roast Mode Pro v1.2</h1>
+<h1>Roast Mode Prov1.3</h1>
 
 <div id="status">Ready</div>
 <div id="tempDisplay">Temp: --</div>
+
+<div id="prompt">—</div>
 
 <div class="row">
 <button class="blue" onclick="initVoice()">Voice</button>
@@ -93,9 +107,26 @@ let chart;
 let sessionActive = false;
 let startTime = 0;
 
-let tempHistory = [];
-let timerInterval = null;
 let promptInterval = null;
+let timerInterval = null;
+
+/* ================= AUDIO BEEP ================= */
+function beep(){
+const ctx = new (window.AudioContext || window.webkitAudioContext)();
+const osc = ctx.createOscillator();
+const gain = ctx.createGain();
+
+osc.connect(gain);
+gain.connect(ctx.destination);
+
+osc.frequency.value = 880;
+osc.type = "sine";
+
+gain.gain.setValueAtTime(0.1, ctx.currentTime);
+
+osc.start();
+osc.stop(ctx.currentTime + 0.15);
+}
 
 /* ================= INIT ================= */
 window.onload = function () {
@@ -124,32 +155,6 @@ fill: false
 document.getElementById("status").innerText = "Ready";
 };
 
-/* ================= SPEECH ================= */
-function speak(text){
-
-/* FIX: prevents speech being silently dropped */
-window.speechSynthesis.cancel();
-
-setTimeout(() => {
-speechSynthesis.speak(new SpeechSynthesisUtterance(text));
-}, 120);
-}
-
-/* ================= TIMER ================= */
-function startTimer(){
-clearInterval(timerInterval);
-
-timerInterval = setInterval(() => {
-if (!sessionActive) return;
-
-let s = Math.floor((Date.now() - startTime) / 1000);
-
-document.getElementById("timer").innerText =
-Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0");
-
-}, 1000);
-}
-
 /* ================= VOICE ================= */
 function initVoice(){
 
@@ -164,13 +169,10 @@ const text = e.results[e.results.length - 1][0].transcript.toLowerCase();
 
 document.getElementById("status").innerText = text;
 
-/* TEMP PARSE */
+/* TEMP */
 if (text.includes("temp") || text.includes("temperature")) {
 let n = text.match(/\d+/);
-if (n) {
-let t = parseInt(n[0]);
-commitTemp(t);
-}
+if (n) commitTemp(parseInt(n[0]));
 }
 
 /* FIRST CRACK */
@@ -186,7 +188,6 @@ endRoast();
 
 recognition.start();
 document.getElementById("status").innerText = "Voice active";
-speak("Voice ready");
 }
 
 /* ================= START ================= */
@@ -194,37 +195,52 @@ function startRoast(){
 
 sessionActive = true;
 startTime = Date.now();
-tempHistory = [];
 
-startTimer();
+/* TIMER */
+timerInterval = setInterval(() => {
+if (!sessionActive) return;
 
-/* 30 SECOND PROMPT LOOP (FIXED) */
-clearInterval(promptInterval);
+let s = Math.floor((Date.now() - startTime) / 1000);
 
+document.getElementById("timer").innerText =
+Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0");
+
+}, 1000);
+
+/* 🔴 VISUAL + BEEP PROMPT LOOP */
 promptInterval = setInterval(() => {
 
 if (!sessionActive) return;
 
-speak("temperature");
+/* visual */
+let p = document.getElementById("prompt");
+p.innerText = "TEMP?";
+p.classList.add("active");
+
+/* beep */
+beep();
+
+/* reset visual after short flash */
+setTimeout(() => {
+p.classList.remove("active");
+p.innerText = "—";
+}, 800);
 
 }, 30000);
 
-speak("Roast started");
 document.getElementById("status").innerText = "Running";
 }
 
-/* ================= CORE TEMP COMMIT ================= */
+/* ================= TEMP COMMIT ================= */
 function commitTemp(temp){
 
 if (!sessionActive) return;
 
 document.getElementById("tempDisplay").innerText = "Temp: " + temp;
 
-tempHistory.push(temp);
-
 let t = Math.floor((Date.now() - startTime) / 1000);
 
-/* TEMP */
+/* chart temp */
 chart.data.labels.push(t);
 chart.data.datasets[0].data.push(temp);
 
@@ -248,7 +264,6 @@ chart.update();
 /* ================= FIRST CRACK ================= */
 function markFirstCrack(){
 document.getElementById("status").innerText = "First Crack";
-speak("First crack");
 }
 
 /* ================= END ================= */
@@ -259,8 +274,9 @@ sessionActive = false;
 clearInterval(promptInterval);
 clearInterval(timerInterval);
 
+document.getElementById("prompt").innerText = "—";
+
 document.getElementById("status").innerText = "Complete";
-speak("Roast complete");
 }
 
 </script>
