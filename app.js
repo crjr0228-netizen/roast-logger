@@ -6,11 +6,9 @@ let data = [];
 let startTime = 0;
 
 let uiTimer = null;
-let roastTimer = null;
 let devTimer = null;
 
 let firstCrackTime = null;
-let stopTime = null;
 
 // ---------------- CHART ----------------
 
@@ -32,18 +30,6 @@ const chart = new Chart(ctx, {
         data: [],
         borderColor: "#00ccff",
         tension: 0.3
-      },
-      {
-        label: "First Crack",
-        data: [],
-        showLine: false,
-        pointRadius: 8
-      },
-      {
-        label: "Dev Milestones",
-        data: [],
-        showLine: false,
-        pointRadius: 6
       }
     ]
   }
@@ -78,8 +64,8 @@ function initVoice() {
 
 function setVoiceReady() {
   if (voiceReady) return;
-
   voiceReady = true;
+
   document.getElementById("status").innerText = "Ready";
   speak("Ready");
   document.getElementById("startBtn").disabled = false;
@@ -102,11 +88,7 @@ function startRoast() {
   document.getElementById("status").innerText = "Roast Running";
 
   uiTimer = setInterval(updateTimer, 1000);
-  devTimer = setInterval(updateDevTimes, 1000);
-
-  roastTimer = setInterval(() => {
-    speak("Temperature");
-  }, 30000);
+  devTimer = setInterval(updateDevStrip, 1000);
 
   setTimeout(() => speak("Temperature"), 800);
 }
@@ -118,51 +100,57 @@ function updateTimer() {
     formatTime((Date.now() - startTime) / 1000);
 }
 
-// ---------------- DEV LIVE + MARKERS ----------------
+// ---------------- FIRST CRACK ----------------
 
-function updateDevTimes() {
-  const totalSec = Math.floor((Date.now() - startTime) / 1000);
-  document.getElementById("totalTime").innerText = formatTime(totalSec);
+function markFirstCrackManual() {
+  markFirstCrack();
+}
 
-  if (!firstCrackTime) return;
+function markFirstCrack() {
+  if (!startTime) return;
 
-  const devSec = Math.floor((Date.now() - firstCrackTime) / 1000);
+  firstCrackTime = Date.now();
 
-  document.getElementById("devTime").innerText = formatTime(devSec);
+  const sec = Math.floor((firstCrackTime - startTime) / 1000);
 
-  const pct = (devSec / totalSec) * 100;
+  document.getElementById("fcTime").innerText = formatTime(sec);
+
+  speak("First Crack recorded");
+}
+
+// ---------------- DEV STRIP (FIXED + ALWAYS RENDERING) ----------------
+
+function updateDevStrip() {
+
+  const stripEl = document.getElementById("devStrip");
+
+  if (!firstCrackTime) {
+    stripEl.innerText = "Waiting for First Crack...";
+    return;
+  }
+
+  const totalSec = (Date.now() - startTime) / 1000;
+  const devSec = (Date.now() - firstCrackTime) / 1000;
+
+  const milestones = [15, 17.5, 20, 22.5, 25];
+
+  const strip = milestones.map(pct => {
+    const sec = (pct / 100) * devSec;
+    return `${pct}% (${formatTime(sec)})`;
+  }).join("   |   ");
+
+  stripEl.innerText = strip;
+
+  const pct = ((devSec / totalSec) * 100);
 
   document.getElementById("devPct").innerText =
     `${pct.toFixed(1)}% (${formatTime(devSec)})`;
 
-  drawDevMilestones(devSec);
+  document.getElementById("devTime").innerText =
+    formatTime(devSec);
 }
 
-// ---------------- 🔥 DEV MILESTONES (THIS IS THE KEY FIX) ----------------
-
-function drawDevMilestones(devSec) {
-
-  const milestones = [15, 17.5, 20, 22.5, 25];
-
-  const baseTemp =
-    data.length ? data[data.length - 1].temp : 0;
-
-  chart.data.datasets[3].data = [];
-
-  milestones.forEach(pct => {
-
-    const sec = (pct / 100) * devSec;
-
-    chart.data.datasets[3].data.push({
-      x: (firstCrackTime ? Math.floor((firstCrackTime - startTime) / 1000) + sec : sec) + "s",
-      y: baseTemp
-    });
-  });
-
-  chart.update();
-}
-
-// ---------------- SPEECH ----------------
+// ---------------- TEMP ----------------
 
 function handleSpeech(text) {
   if (!text) return;
@@ -172,54 +160,13 @@ function handleSpeech(text) {
   if (!voiceReady) setVoiceReady();
 
   if (text.includes("first crack")) {
-    confirmFirstCrack();
+    markFirstCrack();
     return;
   }
 
   const temp = parseNumber(text);
   if (temp !== null) logTemp(temp);
 }
-
-// ---------------- FIRST CRACK ----------------
-
-function confirmFirstCrack() {
-  speak("Did you say First Crack?");
-
-  setTimeout(() => {
-    const r = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
-    r.lang = "en-US";
-
-    r.onresult = (e) => {
-      const resp = e.results[0][0].transcript.toLowerCase();
-      if (resp.includes("yes")) markFirstCrack();
-    };
-
-    r.start();
-  }, 600);
-}
-
-function markFirstCrackManual() {
-  markFirstCrack();
-}
-
-function markFirstCrack() {
-  firstCrackTime = Date.now();
-
-  const sec = Math.floor((firstCrackTime - startTime) / 1000);
-
-  chart.data.datasets[2].data.push({
-    x: sec + "s",
-    y: data.length ? data[data.length - 1].temp : 0
-  });
-
-  document.getElementById("fcTime").innerText = formatTime(sec);
-
-  chart.update();
-
-  speak("First Crack recorded");
-}
-
-// ---------------- TEMP ----------------
 
 function logTemp(temp) {
   const t = Math.floor((Date.now() - startTime) / 1000);
@@ -258,14 +205,13 @@ function updateRoR() {
 
 function stopRoast() {
   voiceActive = false;
-
   if (recognition) recognition.stop();
 
   clearInterval(uiTimer);
-  clearInterval(roastTimer);
   clearInterval(devTimer);
 
   const total = Math.floor((Date.now() - startTime) / 1000);
+
   document.getElementById("totalTime").innerText = formatTime(total);
 
   const dev = firstCrackTime
@@ -291,25 +237,11 @@ function speak(text) {
 
 function formatTime(sec) {
   sec = Math.floor(sec);
-  const m = Math.floor(sec / 60);
-  const s = sec % 60;
-  return `${m}:${String(s).padStart(2, "0")}`;
+  return `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, "0")}`;
 }
 
 function parseNumber(text) {
-  if (text.match(/\d+/)) return parseInt(text.match(/\d+/)[0]);
-
-  const map = {
-    one:1,two:2,three:3,four:4,five:5,
-    six:6,seven:7,eight:8,nine:9,
-    ten:10,twenty:20,thirty:30,forty:40,fifty:50
-  };
-
-  let total = 0;
-
-  text.split(" ").forEach(w => {
-    if (map[w]) total += map[w];
-  });
-
-  return total || null;
+  const match = text.match(/\d+/);
+  if (match) return parseInt(match[0]);
+  return null;
 }
