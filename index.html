@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="utf-8">
-<title>Roast Mode Pro (v3.2 Voice Prompt Loop)</title>
+<title>Roast Mode Pro (Fixed Chart)</title>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
@@ -61,7 +61,7 @@ border-radius:10px;
 
 <body>
 
-<h1>Roast Mode Pro</h1>
+<h1>Roast Mode Pro v6</h1>
 <div id="status">Ready</div>
 
 <div class="row">
@@ -77,43 +77,48 @@ border-radius:10px;
 
 <script>
 
-/* ===== STATE ===== */
+/* ================= STATE ================= */
 let recognition;
 let chart;
 
-let startTime=0;
-let temp=0;
+let startTime = 0;
+let temp = 0;
 
 let timerInterval;
 let tempPromptInterval;
 
-let listening=false;
-
-/* ===== INIT ===== */
+/* ================= INIT ================= */
 window.onload=function(){
 
 chart=new Chart(document.getElementById("chart"),{
 type:"line",
 data:{
 labels:[],
-datasets:[{
+datasets:[
+{
 label:"Temp",
 data:[],
 borderColor:"#ffcc00"
-}]
+},
+{
+label:"RoR",
+data:[],
+borderColor:"#ff4444"
+}
+]
 }
 });
 
 document.getElementById("status").innerText="Ready";
 };
 
-/* ===== SPEECH OUTPUT ===== */
+/* ================= SPEECH ================= */
 function speak(text){
-window.speechSynthesis.cancel();
-window.speechSynthesis.speak(new SpeechSynthesisUtterance(text));
+speechSynthesis.cancel();
+speechSynthesis.speak(new SpeechSynthesisUtterance(text));
 }
 
-/* ===== TIMER ===== */
+/* ================= TIMER ================= */
 function startTimer(){
 clearInterval(timerInterval);
 
@@ -124,7 +129,7 @@ Math.floor(s/60)+":"+String(s%60).padStart(2,"0");
 },1000);
 }
 
-/* ===== VOICE ===== */
+/* ================= VOICE (UNCHANGED BEHAVIOR) ================= */
 function initVoice(){
 
 const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
@@ -162,12 +167,10 @@ endRoast();
 };
 
 recognition.start();
-listening=true;
-
 document.getElementById("status").innerText="Voice active";
 }
 
-/* ===== START ROAST ===== */
+/* ================= START ROAST ================= */
 function startRoast(){
 
 startTime=Date.now();
@@ -175,23 +178,55 @@ temp=0;
 
 startTimer();
 
-/* 🔥 RESTORED 30s VOICE PROMPT LOOP */
+/* 30s voice prompt (UNCHANGED BEHAVIOR) */
 clearInterval(tempPromptInterval);
 tempPromptInterval=setInterval(()=>{
 speak("temperature");
+logToChart(); // <-- ONLY SAFE ADDITION (chart fix)
 },30000);
 
 speak("Roast started");
 document.getElementById("status").innerText="Running";
 }
 
-/* ===== FIRST CRACK ===== */
+/* ================= CHART FIX (RESTORED PIPELINE) ================= */
+function logToChart(){
+
+if(!startTime) return;
+
+let t = Math.floor((Date.now()-startTime)/1000);
+
+/* TEMP DATA */
+chart.data.labels.push(t);
+chart.data.datasets[0].data.push(temp);
+
+/* ROR */
+let ror = 0;
+
+let temps = chart.data.datasets[0].data;
+let times = chart.data.labels;
+
+if(temps.length > 1){
+let dt = times[times.length-1] - times[times.length-2];
+let dT = temps[temps.length-1] - temps[temps.length-2];
+
+if(dt !== 0){
+ror = dT / dt;
+}
+}
+
+chart.data.datasets[1].data.push(ror);
+
+chart.update();
+}
+
+/* ================= FIRST CRACK ================= */
 function markFirstCrack(){
 document.getElementById("status").innerText="First Crack";
 speak("First crack");
 }
 
-/* ===== END ROAST ===== */
+/* ================= END ROAST ================= */
 function endRoast(){
 clearInterval(tempPromptInterval);
 document.getElementById("status").innerText="Complete";
