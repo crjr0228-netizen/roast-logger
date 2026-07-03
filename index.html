@@ -1,337 +1,37 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Roast OS Pro</title>
+  <title>Roast Logger Pro</title>
+  <link rel="stylesheet" href="style.css">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
-  <style>
-    body {
-      margin: 0;
-      font-family: Arial;
-      background: #0b0b0b;
-      color: white;
-      text-align: center;
-    }
-
-    h1 { margin: 10px; }
-
-    #status {
-      color: #aaa;
-      margin: 10px;
-      font-size: 18px;
-    }
-
-    #elapsed {
-      font-size: 72px;
-      font-weight: bold;
-      margin-top: 10px;
-    }
-
-    .row {
-      display: flex;
-      justify-content: center;
-      flex-wrap: wrap;
-      gap: 10px;
-      margin: 10px;
-    }
-
-    button {
-      font-size: 28px;
-      padding: 18px 30px;
-      border-radius: 16px;
-      border: none;
-      min-width: 240px;
-      font-weight: bold;
-    }
-
-    .green { background: #1f7a1f; color: white; }
-    .red { background: #7a1f1f; color: white; }
-    .gray { background: #333; color: white; }
-
-    button:disabled { opacity: 0.4; }
-
-    #stats {
-      display: flex;
-      justify-content: space-around;
-      margin: 10px;
-      font-size: 18px;
-    }
-
-    canvas {
-      max-width: 95%;
-      background: #1a1a1a;
-      border-radius: 10px;
-      margin-top: 10px;
-    }
-  </style>
 </head>
 
 <body>
 
-<h1>Roast OS Pro</h1>
+<h1>Roast Logger Pro</h1>
 
 <div id="status">Tap Initialize Voice</div>
 
 <div class="row">
-  <button class="gray" onclick="initVoice()">Initialize Voice</button>
+  <button onclick="initVoice()" class="gray">Initialize Voice</button>
 </div>
 
 <div class="row">
-  <button id="startBtn" class="green" onclick="startRoast()" disabled>Start Roast</button>
-  <button class="red" onclick="stopRoast()">Stop Roast</button>
+  <button id="startBtn" onclick="startRoast()" class="green" disabled>Start Roast</button>
+  <button onclick="markFirstCrackManual()" class="orange">First Crack</button>
+  <button onclick="stopRoast()" class="red">Stop Roast</button>
 </div>
 
-<div id="elapsed">00:00</div>
+<div id="timer">00:00</div>
 
-<div id="stats">
+<div class="stats">
   <div id="temp">Temp: --</div>
   <div id="ror">RoR: --</div>
 </div>
 
 <canvas id="chart"></canvas>
 
-<script>
-
-let recognition = null;
-let voiceActive = false;
-let listening = false;
-
-let data = [];
-let startTime = 0;
-
-let uiTimer = null;
-let roastTimer = null;
-
-// ---------------- CHART ----------------
-
-const ctx = document.getElementById("chart").getContext("2d");
-
-const chart = new Chart(ctx, {
-  type: "line",
-  data: {
-    labels: [],
-    datasets: [
-      { label: "Temp", data: [], borderColor: "#ffcc00", tension: 0.3 },
-      { label: "RoR", data: [], borderColor: "#00ccff", tension: 0.3 }
-    ]
-  }
-});
-
-// ---------------- VOICE (CHROME SAFE) ----------------
-
-function initVoice() {
-
-  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-
-  if (!SpeechRecognition) {
-    alert("SpeechRecognition not supported in this browser");
-    return;
-  }
-
-  recognition = new SpeechRecognition();
-
-  recognition.lang = "en-US";
-  recognition.continuous = true;
-  recognition.interimResults = false;
-
-  recognition.onstart = () => {
-    document.getElementById("status").innerText =
-      "🎤 Listening continuously...";
-  };
-
-  recognition.onresult = (event) => {
-    const text =
-      event.results[event.results.length - 1][0].transcript;
-
-    handleSpeech(text);
-  };
-
-  recognition.onerror = (e) => {
-    console.log("Speech error:", e.error);
-
-    document.getElementById("status").innerText =
-      "Mic error: " + e.error;
-
-    if (voiceActive) {
-      setTimeout(() => {
-        try { recognition.start(); } catch (e) {}
-      }, 500);
-    }
-  };
-
-  recognition.onend = () => {
-    if (voiceActive) {
-      setTimeout(() => {
-        try { recognition.start(); } catch (e) {}
-      }, 300);
-    }
-  };
-
-  // MUST be user gesture
-  recognition.start();
-  voiceActive = true;
-
-  document.getElementById("startBtn").disabled = false;
-  document.getElementById("status").innerText = "Voice system initialized";
-
-  speak("Voice ready");
-}
-
-// ---------------- START / STOP ----------------
-
-function startRoast() {
-
-  if (uiTimer) clearInterval(uiTimer);
-  if (roastTimer) clearInterval(roastTimer);
-
-  data = [];
-  startTime = Date.now();
-
-  chart.data.labels = [];
-  chart.data.datasets.forEach(d => d.data = []);
-  chart.update();
-
-  document.getElementById("status").innerText = "Roast running";
-
-  // UI timer
-  uiTimer = setInterval(() => {
-    let t = Math.floor((Date.now() - startTime) / 1000);
-
-    let m = Math.floor(t / 60);
-    let s = t % 60;
-
-    document.getElementById("elapsed").innerText =
-      String(m).padStart(2, "0") + ":" + String(s).padStart(2, "0");
-  }, 1000);
-
-  // roast prompt every 30 sec (still useful as cue)
-  roastTimer = setInterval(() => {
-    askTemperature();
-  }, 30000);
-
-  setTimeout(() => {
-    askTemperature();
-  }, 2000);
-}
-
-function stopRoast() {
-
-  voiceActive = false;
-
-  if (recognition) {
-    recognition.onend = null;
-    recognition.stop();
-  }
-
-  clearInterval(uiTimer);
-  clearInterval(roastTimer);
-
-  uiTimer = null;
-  roastTimer = null;
-
-  speak("Roast complete");
-  document.getElementById("status").innerText = "Roast stopped";
-}
-
-// ---------------- ROAST FLOW ----------------
-
-function askTemperature() {
-  document.getElementById("status").innerText =
-    "Say temperature...";
-  speak("Temperature");
-}
-
-// ---------------- SPEECH HANDLER ----------------
-
-function handleSpeech(text) {
-
-  if (!text) return;
-
-  text = text.toLowerCase();
-
-  const temp = parseNumber(text);
-
-  if (temp !== null) {
-    logTemp(temp);
-    document.getElementById("status").innerText =
-      "Logged: " + temp;
-  } else {
-    document.getElementById("status").innerText =
-      "Heard: " + text;
-  }
-}
-
-// ---------------- LOGGING ----------------
-
-function logTemp(temp) {
-
-  let t = Math.floor((Date.now() - startTime) / 1000);
-
-  data.push({ time: t, temp });
-
-  chart.data.labels.push(t + "s");
-  chart.data.datasets[0].data.push(temp);
-
-  updateRoR();
-
-  document.getElementById("temp").innerText = "Temp: " + temp;
-
-  chart.update();
-}
-
-// ---------------- RoR ----------------
-
-function updateRoR() {
-  if (data.length < 2) return;
-
-  let a = data[data.length - 1];
-  let b = data[data.length - 2];
-
-  let dt = (a.time - b.time) / 60;
-  if (dt === 0) return;
-
-  let ror = (a.temp - b.temp) / dt;
-
-  chart.data.datasets[1].data.push(ror);
-
-  document.getElementById("ror").innerText =
-    "RoR: " + ror.toFixed(1);
-}
-
-// ---------------- PARSER ----------------
-
-function parseNumber(text) {
-
-  if (text.match(/\d+/)) {
-    return parseInt(text.match(/\d+/)[0]);
-  }
-
-  const map = {
-    one:1,two:2,three:3,four:4,five:5,six:6,seven:7,eight:8,nine:9,
-    ten:10,twenty:20,thirty:30,forty:40,fifty:50,
-    sixty:60,seventy:70,eighty:80,ninety:90,hundred:100
-  };
-
-  let total = 0;
-
-  text.split(" ").forEach(w => {
-    if (map[w]) {
-      if (map[w] === 100) total *= 100;
-      else total += map[w];
-    }
-  });
-
-  return total || null;
-}
-
-// ---------------- SPEAK ----------------
-
-function speak(text) {
-  speechSynthesis.cancel();
-  speechSynthesis.speak(new SpeechSynthesisUtterance(text));
-}
-
-</script>
+<script src="app.js"></script>
 
 </body>
 </html>
