@@ -5,13 +5,14 @@ let voiceReady = false;
 let data = [];
 let startTime = 0;
 
-let uiTimer;
-let roastTimer;
+let uiTimer = null;
+let roastTimer = null;
+let devTimer = null;
 
 let firstCrackTime = null;
 let stopTime = null;
 
-// ---------------- CHART (FIXED FORMAT) ----------------
+// ---------------- CHART ----------------
 
 const ctx = document.getElementById("chart").getContext("2d");
 
@@ -42,10 +43,9 @@ const chart = new Chart(ctx, {
   }
 });
 
-// ---------------- VOICE INIT ----------------
+// ---------------- VOICE ----------------
 
 function initVoice() {
-
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 
   recognition = new SR();
@@ -68,7 +68,7 @@ function initVoice() {
   document.getElementById("status").innerText = "Voice initializing...";
 }
 
-// ---------------- FIXED READY GATE ----------------
+// ---------------- READY ----------------
 
 function setVoiceReady() {
   if (voiceReady) return;
@@ -79,10 +79,9 @@ function setVoiceReady() {
   document.getElementById("startBtn").disabled = false;
 }
 
-// ---------------- START ROAST (FIXED SPEECH TIMING) ----------------
+// ---------------- START ----------------
 
 function startRoast() {
-
   data = [];
   startTime = Date.now();
   firstCrackTime = null;
@@ -98,31 +97,40 @@ function startRoast() {
 
   uiTimer = setInterval(updateTimer, 1000);
 
-  // IMPORTANT: delay speech slightly after user gesture
-  setTimeout(() => {
-    speak("Temperature");
-  }, 800);
+  devTimer = setInterval(updateDevTimes, 1000);
 
   roastTimer = setInterval(() => {
     speak("Temperature");
   }, 30000);
+
+  setTimeout(() => speak("Temperature"), 800);
 }
 
 // ---------------- TIMER ----------------
 
 function updateTimer() {
-  const t = Math.floor((Date.now() - startTime) / 1000);
-  const m = Math.floor(t / 60);
-  const s = t % 60;
-
   document.getElementById("timer").innerText =
-    String(m).padStart(2, "0") + ":" + String(s).padStart(2, "0");
+    formatTime((Date.now() - startTime) / 1000);
+}
+
+// ---------------- DEV (LIVE) ----------------
+
+function updateDevTimes() {
+  const totalSec = Math.floor((Date.now() - startTime) / 1000);
+  document.getElementById("totalTime").innerText = formatTime(totalSec);
+
+  if (!firstCrackTime) return;
+
+  const devSec = Math.floor((Date.now() - firstCrackTime) / 1000);
+  document.getElementById("devTime").innerText = formatTime(devSec);
+
+  const pct = ((devSec / totalSec) * 100).toFixed(1);
+  document.getElementById("devPct").innerText = pct + "%";
 }
 
 // ---------------- SPEECH ----------------
 
 function handleSpeech(text) {
-
   if (!text) return;
 
   text = text.toLowerCase();
@@ -138,7 +146,7 @@ function handleSpeech(text) {
   if (temp !== null) logTemp(temp);
 }
 
-// ---------------- FIXED FIRST CRACK ----------------
+// ---------------- FIRST CRACK ----------------
 
 function confirmFirstCrack() {
   speak("Did you say First Crack?");
@@ -153,7 +161,7 @@ function confirmFirstCrack() {
     };
 
     r.start();
-  }, 800);
+  }, 600);
 }
 
 function markFirstCrackManual() {
@@ -161,7 +169,6 @@ function markFirstCrackManual() {
 }
 
 function markFirstCrack() {
-
   firstCrackTime = Date.now();
 
   const sec = Math.floor((firstCrackTime - startTime) / 1000);
@@ -171,17 +178,16 @@ function markFirstCrack() {
     y: data.length ? data[data.length - 1].temp : 0
   });
 
-  document.getElementById("fcTime").innerText = sec + " sec";
+  document.getElementById("fcTime").innerText = formatTime(sec);
 
   chart.update();
 
   speak("First Crack recorded");
 }
 
-// ---------------- FIXED CHARTING ----------------
+// ---------------- TEMP LOG ----------------
 
 function logTemp(temp) {
-
   const t = Math.floor((Date.now() - startTime) / 1000);
 
   data.push({ time: t, temp });
@@ -190,10 +196,9 @@ function logTemp(temp) {
   chart.data.datasets[0].data.push(temp);
 
   updateRoR();
+  chart.update();
 
   document.getElementById("temp").innerText = "Temp: " + temp;
-
-  chart.update();
 }
 
 // ---------------- RoR ----------------
@@ -218,27 +223,33 @@ function updateRoR() {
 // ---------------- STOP ----------------
 
 function stopRoast() {
-
   voiceActive = false;
 
   if (recognition) recognition.stop();
 
   clearInterval(uiTimer);
   clearInterval(roastTimer);
+  clearInterval(devTimer);
 
-  stopTime = Date.now();
-
-  const total = Math.floor((stopTime - startTime) / 1000);
+  const total = Math.floor((Date.now() - startTime) / 1000);
+  document.getElementById("totalTime").innerText = formatTime(total);
 
   const dev = firstCrackTime
-    ? Math.floor((stopTime - firstCrackTime) / 1000)
+    ? Math.floor((Date.now() - firstCrackTime) / 1000)
     : 0;
 
-  document.getElementById("totalTime").innerText = total + " sec";
-  document.getElementById("devTime").innerText = dev + " sec";
+  document.getElementById("devTime").innerText = formatTime(dev);
 
   const pct = firstCrackTime ? ((dev / total) * 100).toFixed(1) : "--";
   document.getElementById("devPct").innerText = pct + "%";
+
+  const green = parseFloat(document.getElementById("green").value);
+  const roast = parseFloat(document.getElementById("roast").value);
+
+  if (!isNaN(green) && !isNaN(roast)) {
+    const loss = ((green - roast) / green) * 100;
+    document.getElementById("loss").innerText = loss.toFixed(1) + "%";
+  }
 
   speak("Roast complete");
 }
@@ -250,8 +261,14 @@ function speak(text) {
   speechSynthesis.speak(new SpeechSynthesisUtterance(text));
 }
 
-function parseNumber(text) {
+function formatTime(sec) {
+  sec = Math.floor(sec);
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  return `${m}:${String(s).padStart(2, "0")}`;
+}
 
+function parseNumber(text) {
   if (text.match(/\d+/)) return parseInt(text.match(/\d+/)[0]);
 
   const map = {
