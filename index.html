@@ -17,6 +17,12 @@
     #wakelock-status { font-size: 0.85rem; color: #2e7d32; font-weight: 500; margin-bottom: 10px; }
     .event-badge { display: inline-block; background: #d32f2f; color: white; padding: 4px 8px; border-radius: 4px; font-size: 0.85rem; margin-top: 5px; }
     #chart-container { margin-top: 30px; }
+    
+    /* DTR Table Styling */
+    #dtr-container { margin-top: 30px; display: none; }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; text-align: left; }
+    th, td { padding: 8px 12px; border-bottom: 1px solid #ddd; }
+    th { background-color: #f4f4f4; }
   </style>
 </head>
 <body>
@@ -38,6 +44,23 @@
     <canvas id="roastChart"></canvas>
   </div>
 
+  <!-- Dynamic Development Time Ratio Section -->
+  <div id="dtr-container">
+    <h2>Development Time Ratios</h2>
+    <p id="fc-summary">First Crack: --:--</p>
+    <table>
+      <thead>
+        <tr>
+          <th>DTR %</th>
+          <th>Target Drop Time</th>
+          <th>Dev Duration</th>
+        </tr>
+      </thead>
+      <tbody id="dtr-table-body">
+      </tbody>
+    </table>
+  </div>
+
 <script>
   let secondsElapsed = 0;
   let timerInterval = null;
@@ -46,7 +69,8 @@
   
   const timestamps = [];
   const temperatures = [];
-  let firstCrackTime = null; // Stores timestamp string of First Crack
+  let firstCrackSeconds = null;
+  let firstCrackTimeString = null;
 
   const timerEl = document.getElementById('timer');
   const statusEl = document.getElementById('status');
@@ -68,15 +92,11 @@
       const transcript = event.results[0][0].transcript.toLowerCase();
       statusEl.textContent = `Heard: "${transcript}"`;
       
-      // 1. Check for "First Crack" keywords
       if (transcript.includes('first crack') || transcript.includes('crack') || transcript.includes('fc')) {
-        firstCrackTime = formatTime(secondsElapsed);
-        eventsLogEl.innerHTML += `<div class="event-badge">🔥 First Crack at ${firstCrackTime}</div>`;
-        statusEl.textContent = `Logged First Crack at ${firstCrackTime}!`;
+        recordFirstCrack();
         return;
       }
 
-      // 2. Otherwise parse temperature digits
       const matches = transcript.match(/\d+/g);
       if (matches) {
         const temp = parseInt(matches.join(''), 10);
@@ -89,8 +109,38 @@
     recognition.onerror = (e) => {
       statusEl.textContent = `Speech recognition error: ${e.error}`;
     };
-  } else {
-    alert("Web Speech API is not supported in this browser. Use Safari on iOS.");
+  }
+
+  function recordFirstCrack() {
+    firstCrackSeconds = secondsElapsed;
+    firstCrackTimeString = formatTime(firstCrackSeconds);
+    eventsLogEl.innerHTML = `<div class="event-badge">🔥 First Crack at ${firstCrackTimeString}</div>`;
+    statusEl.textContent = `Logged First Crack at ${firstCrackTimeString}!`;
+    calculateDTRTable();
+  }
+
+  function calculateDTRTable() {
+    if (!firstCrackSeconds) return;
+    
+    const targets = [15, 16, 18, 20, 22, 24, 25];
+    const tbody = document.getElementById('dtr-table-body');
+    tbody.innerHTML = '';
+
+    targets.forEach(pct => {
+      // DTR = DevTime / TotalTime  =>  TotalTime = FC_Time / (1 - DTR)
+      const totalSec = Math.round(firstCrackSeconds / (1 - (pct / 100)));
+      const devSec = totalSec - firstCrackSeconds;
+
+      const row = `<tr>
+        <td><strong>${pct}%</strong></td>
+        <td>${formatTime(totalSec)}</td>
+        <td>${formatTime(devSec)}</td>
+      </tr>`;
+      tbody.innerHTML += row;
+    });
+
+    document.getElementById('fc-summary').textContent = `First Crack Logged at: ${firstCrackTimeString}`;
+    document.getElementById('dtr-container').style.display = 'block';
   }
 
   async function requestWakeLock() {
@@ -136,8 +186,10 @@
     secondsElapsed = 0;
     timestamps.length = 0;
     temperatures.length = 0;
-    firstCrackTime = null;
+    firstCrackSeconds = null;
+    firstCrackTimeString = null;
     eventsLogEl.innerHTML = '';
+    document.getElementById('dtr-container').style.display = 'none';
 
     await requestWakeLock();
 
@@ -176,13 +228,12 @@
   function renderChart() {
     const ctx = document.getElementById('roastChart').getContext('2d');
     
-    // Configure vertical line annotation if First Crack was logged
     const annotationsConfig = {};
-    if (firstCrackTime) {
+    if (firstCrackTimeString) {
       annotationsConfig.firstCrackLine = {
         type: 'line',
-        xMin: firstCrackTime,
-        xMax: firstCrackTime,
+        xMin: firstCrackTimeString,
+        xMax: firstCrackTimeString,
         borderColor: '#d32f2f',
         borderWidth: 2,
         borderDash: [6, 6],
