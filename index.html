@@ -3,50 +3,168 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Voice Coffee Roaster Timer</title>
-  <!-- Chart.js and Annotation Plugin -->
+  <title>Coffee Roasting Timer</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@2.1.0"></script>
 
   <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; max-width: 600px; margin: 20px auto; padding: 0 15px; }
-    button { padding: 12px 18px; font-size: 1rem; margin-right: 5px; margin-bottom: 10px; border-radius: 8px; border: 1px solid #ccc; background: #f0f0f0; cursor: pointer; }
-    button:active { background: #e0e0e0; }
-    #timer { font-size: 3rem; font-weight: bold; margin: 15px 0; font-variant-numeric: tabular-nums; }
-    #status { color: #333; font-weight: 500; min-height: 24px; }
-    #wakelock-status { font-size: 0.85rem; color: #2e7d32; font-weight: 500; margin-bottom: 10px; }
-    .event-badge { display: inline-block; background: #d32f2f; color: white; padding: 4px 8px; border-radius: 4px; font-size: 0.85rem; margin-top: 5px; }
-    #chart-container { margin-top: 30px; }
+    :root {
+      --bg-color: #121212;
+      --card-bg: #1e1e1e;
+      --accent-orange: #ff9800;
+      --accent-red: #f44336;
+      --text-main: #e0e0e0;
+      --text-muted: #a0a0a0;
+      --border-color: #333333;
+    }
 
-    /* Target Completion Times Below Chart */
-    #targets-container { margin-top: 20px; display: none; }
-    .targets-list { list-style: none; padding: 0; margin: 10px 0 0 0; }
-    .targets-list li { padding: 8px 12px; background: #f9f9f9; border: 1px solid #eee; margin-bottom: 6px; border-radius: 6px; display: flex; justify-content: space-between; font-size: 0.95rem; }
+    body {
+      background-color: var(--bg-color);
+      color: var(--text-main);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 20px 15px;
+    }
+
+    h1 {
+      font-size: 1.5rem;
+      text-align: center;
+      margin-bottom: 20px;
+      color: var(--accent-orange);
+    }
+
+    .card {
+      background-color: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 20px;
+      text-align: center;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+    }
+
+    #timer {
+      font-size: 4rem;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      margin: 10px 0;
+      color: #ffffff;
+    }
+
+    .button-group {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-bottom: 15px;
+    }
+
+    button {
+      padding: 12px 20px;
+      font-size: 1rem;
+      font-weight: 600;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.1s;
+    }
+
+    button:active { transform: scale(0.98); }
+
+    .btn-start { background-color: var(--accent-orange); color: #000; }
+    .btn-listen { background-color: #333333; color: var(--text-main); border: 1px solid #555; }
+    .btn-stop { background-color: var(--accent-red); color: #fff; }
+
+    #status {
+      font-size: 0.95rem;
+      color: var(--accent-orange);
+      min-height: 24px;
+      margin-top: 10px;
+    }
+
+    #wakelock-status {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-top: 5px;
+    }
+
+    /* Chart Container */
+    #chart-container {
+      background-color: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 15px;
+      margin-top: 20px;
+    }
+
+    /* DTR Targets Section */
+    #targets-container {
+      background-color: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 15px;
+      margin-top: 20px;
+      display: none;
+    }
+
+    #targets-container h3 {
+      margin-top: 0;
+      font-size: 1.1rem;
+      color: var(--accent-orange);
+    }
+
+    .targets-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+    }
+
+    .targets-table th, .targets-table td {
+      padding: 8px;
+      text-align: left;
+      border-bottom: 1px solid var(--border-color);
+      font-size: 0.9rem;
+    }
+
+    .targets-table th { color: var(--text-muted); }
   </style>
 </head>
 <body>
 
-  <h1>Coffee Roast Voice Timer 2</h1>
-  <div id="timer">00:00</div>
-  <div id="wakelock-status">Screen Stay-Awake: Inactive</div>
-  
-  <div>
-    <button id="startBtn">Start Roast</button>
-    <button id="listenBtn">🎤 Say Voice Command</button>
-    <button id="stopBtn">Stop & Render Chart</button>
-  </div>
-  
-  <p id="status">Status: Idle</p>
-  <div id="events-log"></div>
+  <h1>☕ Coffee Roasting Timer</h1>
 
+  <div class="card">
+    <div id="timer">00:00</div>
+    
+    <div class="button-group">
+      <button id="startBtn" class="btn-start">Start Roast</button>
+      <button id="listenBtn" class="btn-listen">🎤 Voice Command</button>
+      <button id="stopBtn" class="btn-stop">Stop</button>
+    </div>
+
+    <div id="status">Status: Ready</div>
+    <div id="wakelock-status">Screen Stay-Awake: Off</div>
+  </div>
+
+  <!-- Inline Live Chart -->
   <div id="chart-container">
     <canvas id="roastChart"></canvas>
   </div>
 
-  <!-- Target Completion Times Section Below Chart -->
+  <!-- Target Completion Times Below Chart -->
   <div id="targets-container">
-    <strong id="fc-target-title">Target Completion Times (from First Crack at --:--):</strong>
-    <ul class="targets-list" id="targets-list"></ul>
+    <h3 id="fc-target-title">Target Completion Times</h3>
+    <table class="targets-table">
+      <thead>
+        <tr>
+          <th>DTR %</th>
+          <th>Total Time</th>
+          <th>Dev Time</th>
+        </tr>
+      </thead>
+      <tbody id="targets-body"></tbody>
+    </table>
   </div>
 
 <script>
@@ -54,16 +172,16 @@
   let timerInterval = null;
   let voiceInterval = null;
   let wakeLock = null;
+  let audioCtx = null;
   
   const timestamps = [];
   const temperatures = [];
   let firstCrackSeconds = null;
-  let firstCrackTime = null; // Stores timestamp string of First Crack
+  let firstCrackTimeStr = null;
 
   const timerEl = document.getElementById('timer');
   const statusEl = document.getElementById('status');
   const wakeStatusEl = document.getElementById('wakelock-status');
-  const eventsLogEl = document.getElementById('events-log');
   
   // Speech Recognition Setup
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -80,55 +198,116 @@
       const transcript = event.results[0][0].transcript.toLowerCase();
       statusEl.textContent = `Heard: "${transcript}"`;
       
-      // Check for "First Crack" keywords
       if (transcript.includes('first crack') || transcript.includes('crack') || transcript.includes('fc')) {
         recordFirstCrack();
         return;
       }
 
-      // Parse temperature digits
       const matches = transcript.match(/\d+/g);
       if (matches) {
         const temp = parseInt(matches.join(''), 10);
         logDataPoint(secondsElapsed, temp);
       } else {
-        statusEl.textContent = `Could not recognize command from: "${transcript}"`;
+        statusEl.textContent = `Could not parse: "${transcript}"`;
       }
     };
-
-    recognition.onerror = (e) => {
-      statusEl.textContent = `Speech recognition error: ${e.error}`;
-    };
-  } else {
-    alert("Web Speech API is not supported in this browser. Use Safari on iOS.");
   }
+
+  // Audio Context Beep Chime
+  function playBeep() {
+    try {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(880, audioCtx.currentTime); // 880Hz pitch
+      gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start();
+      osc.stop(audioCtx.currentTime + 0.2); // 200ms duration
+    } catch(e) {}
+  }
+
+  // Initialize Dark Mode Chart
+  const ctx = document.getElementById('roastChart').getContext('2d');
+  const roastChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: timestamps,
+      datasets: [{
+        label: 'Bean Temp (°)',
+        data: temperatures,
+        borderColor: '#ff9800',
+        backgroundColor: 'rgba(255, 152, 0, 0.1)',
+        borderWidth: 2,
+        fill: true,
+        tension: 0.3
+      }]
+    },
+    options: {
+      responsive: true,
+      scales: {
+        x: {
+          title: { display: true, text: 'Time (MM:SS)', color: '#a0a0a0' },
+          ticks: { color: '#a0a0a0' },
+          grid: { color: '#2a2a2a' }
+        },
+        y: {
+          title: { display: true, text: 'Temperature', color: '#a0a0a0' },
+          ticks: { color: '#a0a0a0' },
+          grid: { color: '#2a2a2a' }
+        }
+      },
+      plugins: {
+        legend: { labels: { color: '#e0e0e0' } },
+        annotation: { annotations: {} }
+      }
+    }
+  });
 
   function recordFirstCrack() {
     firstCrackSeconds = secondsElapsed;
-    firstCrackTime = formatTime(firstCrackSeconds);
-    eventsLogEl.innerHTML = `<div class="event-badge">🔥 First Crack at ${firstCrackTime}</div>`;
-    statusEl.textContent = `Logged First Crack at ${firstCrackTime}!`;
-    updateTargetCompletionTimes();
+    firstCrackTimeStr = formatTime(firstCrackSeconds);
+    statusEl.textContent = `🔥 First Crack logged at ${firstCrackTimeStr}!`;
+    
+    // Add red dashed vertical line on live chart
+    roastChart.options.plugins.annotation.annotations.fcLine = {
+      type: 'line',
+      xMin: firstCrackTimeStr,
+      xMax: firstCrackTimeStr,
+      borderColor: '#f44336',
+      borderWidth: 2,
+      borderDash: [6, 6],
+      label: {
+        display: true,
+        content: 'FC',
+        position: 'start',
+        backgroundColor: '#f44336',
+        color: 'white'
+      }
+    };
+    roastChart.update();
+    updateTargetsTable();
   }
 
-  function updateTargetCompletionTimes() {
+  function updateTargetsTable() {
     if (!firstCrackSeconds) return;
+    const targetPcts = [15, 16, 18, 20, 22, 24, 25];
+    const tbody = document.getElementById('targets-body');
+    tbody.innerHTML = '';
 
-    const targetPercentages = [15, 16, 18, 20, 22, 24, 25];
-    const listEl = document.getElementById('targets-list');
-    listEl.innerHTML = '';
-
-    targetPercentages.forEach(pct => {
-      // Total Time = First Crack Time / (1 - DTR)
-      const targetTotalSec = Math.round(firstCrackSeconds / (1 - (pct / 100)));
-      const devSec = targetTotalSec - firstCrackSeconds;
-
-      const li = document.createElement('li');
-      li.innerHTML = `<span><strong>${pct}% Development:</strong> ${formatTime(targetTotalSec)}</span> <span>(+${formatTime(devSec)})</span>`;
-      listEl.appendChild(li);
+    targetPcts.forEach(pct => {
+      const totalSec = Math.round(firstCrackSeconds / (1 - (pct / 100)));
+      const devSec = totalSec - firstCrackSeconds;
+      tbody.innerHTML += `<tr>
+        <td><strong>${pct}%</strong></td>
+        <td>${formatTime(totalSec)}</td>
+        <td>+${formatTime(devSec)}</td>
+      </tr>`;
     });
 
-    document.getElementById('fc-target-title').textContent = `Target Completion Times (First Crack logged at ${firstCrackTime}):`;
+    document.getElementById('fc-target-title').textContent = `Target Times (First Crack: ${firstCrackTimeStr})`;
     document.getElementById('targets-container').style.display = 'block';
   }
 
@@ -138,20 +317,16 @@
         wakeLock = await navigator.wakeLock.request('screen');
         wakeStatusEl.textContent = "Screen Stay-Awake: Active 🔒";
       }
-    } catch (err) {
-      wakeStatusEl.textContent = `Wake Lock Error: ${err.message}`;
-    }
+    } catch (err) {}
   }
 
-  function startListening() {
-    statusEl.textContent = "Listening for prompt or 'First Crack'...";
-    try { recognition.start(); } catch(e) {}
-  }
-
-  function speakPrompt() {
+  function promptTemperature() {
+    playBeep(); // Audio chime cue
     if (!synthesis) return;
-    const utterance = new SpeechSynthesisUtterance("What is the temperature?");
-    utterance.onend = () => { startListening(); };
+    const utterance = new SpeechSynthesisUtterance("Temperature?");
+    utterance.onend = () => {
+      try { recognition.start(); } catch(e) {}
+    };
     synthesis.speak(utterance);
   }
 
@@ -162,13 +337,15 @@
   }
 
   function logDataPoint(sec, temp) {
-    timestamps.push(formatTime(sec));
+    const timeStr = formatTime(sec);
+    timestamps.push(timeStr);
     temperatures.push(temp);
-    statusEl.textContent = `Logged ${temp}° at ${formatTime(sec)}`;
+    statusEl.textContent = `Logged ${temp}° at ${timeStr}`;
+    roastChart.update(); // Live update chart
   }
 
   document.getElementById('listenBtn').addEventListener('click', () => {
-    startListening();
+    try { recognition.start(); } catch(e) {}
   });
 
   document.getElementById('startBtn').addEventListener('click', async () => {
@@ -176,15 +353,15 @@
     timestamps.length = 0;
     temperatures.length = 0;
     firstCrackSeconds = null;
-    firstCrackTime = null;
-    eventsLogEl.innerHTML = '';
+    firstCrackTimeStr = null;
+    roastChart.options.plugins.annotation.annotations = {};
+    roastChart.update();
     document.getElementById('targets-container').style.display = 'none';
 
     await requestWakeLock();
 
     if (synthesis) {
-      const unlockSpeech = new SpeechSynthesisUtterance("");
-      synthesis.speak(unlockSpeech);
+      synthesis.speak(new SpeechSynthesisUtterance(""));
     }
     
     timerInterval = setInterval(() => {
@@ -192,9 +369,9 @@
       timerEl.textContent = formatTime(secondsElapsed);
     }, 1000);
 
-    speakPrompt();
+    promptTemperature();
     voiceInterval = setInterval(() => {
-      speakPrompt();
+      promptTemperature();
     }, 30000);
 
     statusEl.textContent = "Roast started...";
@@ -204,65 +381,10 @@
     clearInterval(timerInterval);
     clearInterval(voiceInterval);
     if (synthesis) synthesis.cancel();
-    
-    if (wakeLock !== null) {
-      await wakeLock.release();
-      wakeStatusEl.textContent = "Screen Stay-Awake: Released";
-    }
-
-    statusEl.textContent = "Roast ended. Rendering chart...";
-    renderChart();
+    if (wakeLock !== null) await wakeLock.release();
+    wakeStatusEl.textContent = "Screen Stay-Awake: Off";
+    statusEl.textContent = "Roast stopped.";
   });
-
-  function renderChart() {
-    const ctx = document.getElementById('roastChart').getContext('2d');
-    
-    const annotationsConfig = {};
-    if (firstCrackTime) {
-      annotationsConfig.firstCrackLine = {
-        type: 'line',
-        xMin: firstCrackTime,
-        xMax: firstCrackTime,
-        borderColor: '#d32f2f',
-        borderWidth: 2,
-        borderDash: [6, 6],
-        label: {
-          display: true,
-          content: 'First Crack',
-          position: 'start',
-          backgroundColor: '#d32f2f',
-          color: 'white'
-        }
-      };
-    }
-
-    new Chart(ctx, {
-      type: 'line',
-      data: {
-        labels: timestamps,
-        datasets: [{
-          label: 'Bean Temperature (°)',
-          data: temperatures,
-          borderColor: '#8B4513',
-          backgroundColor: 'rgba(139, 69, 19, 0.1)',
-          fill: true,
-          tension: 0.3
-        }]
-      },
-      options: {
-        responsive: true,
-        plugins: {
-          annotation: {
-            annotations: annotationsConfig
-          }
-        },
-        scales: {
-          x: { title: { display: true, text: 'Time (MM:SS)' } },
-          y: { title: { display: true, text: 'Temperature' } }
-        }
-      }
-    });
-  }
 </script>
 </body>
 </html>
