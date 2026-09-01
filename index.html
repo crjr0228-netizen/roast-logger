@@ -77,7 +77,7 @@
     .btn-start { background-color: var(--accent-orange); color: #000; }
     .btn-listen { background-color: #333333; color: var(--text-main); border: 1px solid #555; }
     .btn-stop { background-color: var(--accent-red); color: #fff; }
-    .btn-csv { background-color: var(--accent-green); color: #fff; margin-top: 20px; width: 100%; }
+    .btn-csv { background-color: var(--accent-green); color: #fff; margin-bottom: 20px; width: 100%; }
 
     #status {
       font-size: 0.95rem;
@@ -130,11 +130,64 @@
 
     .targets-table th { color: var(--text-muted); }
 
-    /* Bottom CSV Export Section */
+    /* Bottom CSV & Details Section */
     #export-container {
       margin-top: 20px;
-      text-align: center;
       display: none;
+    }
+
+    .details-card {
+      background-color: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 20px;
+      text-align: left;
+    }
+
+    .form-group {
+      margin-bottom: 15px;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .form-group label {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+
+    .form-group input {
+      background-color: #121212;
+      border: 1px solid var(--border-color);
+      color: var(--text-main);
+      padding: 10px;
+      border-radius: 6px;
+      font-size: 1rem;
+    }
+
+    .form-group input:focus {
+      border-color: var(--accent-orange);
+      outline: none;
+    }
+
+    .weight-row {
+      display: flex;
+      gap: 10px;
+    }
+
+    .weight-row .form-group {
+      flex: 1;
+    }
+
+    .loss-display {
+      font-size: 1.1rem;
+      font-weight: bold;
+      color: var(--accent-orange);
+      padding: 10px;
+      background: #121212;
+      border-radius: 6px;
+      border: 1px solid var(--border-color);
     }
   </style>
 </head>
@@ -173,9 +226,38 @@
     </table>
   </div>
 
-  <!-- CSV Export Container at Bottom -->
+  <!-- CSV Export Container & Roast Metadata -->
   <div id="export-container">
     <button id="csvBtn" class="btn-csv">CSV?</button>
+
+    <div class="details-card">
+      <div class="form-group">
+        <label for="beanInput">Bean:</label>
+        <input type="text" id="beanInput" placeholder="e.g. Ethiopia Yirgacheffe">
+      </div>
+
+      <div class="weight-row">
+        <div class="form-group">
+          <label for="greenInput">Green Weight:</label>
+          <input type="number" id="greenInput" step="0.1" placeholder="g / oz">
+        </div>
+
+        <div class="form-group">
+          <label for="roastInput">Roast Weight:</label>
+          <input type="number" id="roastInput" step="0.1" placeholder="g / oz">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Weight Loss:</label>
+        <div id="weightLossDisplay" class="loss-display">0.0%</div>
+      </div>
+
+      <div class="form-group">
+        <label for="dateInput">Date:</label>
+        <input type="date" id="dateInput">
+      </div>
+    </div>
   </div>
 
 <script>
@@ -197,7 +279,31 @@
   const statusEl = document.getElementById('status');
   const wakeStatusEl = document.getElementById('wakelock-status');
   const exportContainerEl = document.getElementById('export-container');
-  
+
+  const greenInput = document.getElementById('greenInput');
+  const roastInput = document.getElementById('roastInput');
+  const weightLossDisplay = document.getElementById('weightLossDisplay');
+  const dateInput = document.getElementById('dateInput');
+
+  // Set default date to today
+  dateInput.value = new Date().toISOString().split('T')[0];
+
+  // Weight Loss % Calculator
+  function calculateWeightLoss() {
+    const green = parseFloat(greenInput.value);
+    const roast = parseFloat(roastInput.value);
+
+    if (green > 0 && roast > 0 && green >= roast) {
+      const loss = ((green - roast) / green) * 100;
+      weightLossDisplay.textContent = `${loss.toFixed(1)}%`;
+    } else {
+      weightLossDisplay.textContent = `0.0%`;
+    }
+  }
+
+  greenInput.addEventListener('input', calculateWeightLoss);
+  roastInput.addEventListener('input', calculateWeightLoss);
+
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   const synthesis = window.speechSynthesis;
   let recognition = null;
@@ -411,27 +517,38 @@
     roastChart.update();
   }
 
-  // Export CSV Function
   function exportCSV() {
     if (timestamps.length === 0) {
       alert("No data recorded to export.");
       return;
     }
 
-    let csvContent = "data:text/csv;charset=utf-8,Time (MM:SS),Time (Seconds),Temperature,Rate of Rise (°/min)\n";
-    
+    const bean = document.getElementById('beanInput').value || 'N/A';
+    const green = greenInput.value || 'N/A';
+    const roast = roastInput.value || 'N/A';
+    const loss = weightLossDisplay.textContent;
+    const date = dateInput.value || 'N/A';
+
+    let csvContent = "data:text/csv;charset=utf-8,";
+    csvContent += `Roast Log Metadata\n`;
+    csvContent += `Date,${date}\n`;
+    csvContent += `Bean,${bean.replace(/,/g, ' ')}\n`;
+    csvContent += `Green Weight,${green}\n`;
+    csvContent += `Roast Weight,${roast}\n`;
+    csvContent += `Weight Loss,${loss}\n`;
+    if (firstCrackTimeStr) {
+      csvContent += `First Crack,${firstCrackTimeStr} (${firstCrackSeconds}s)\n`;
+    }
+    csvContent += `\nTime (MM:SS),Time (Seconds),Temperature,Rate of Rise (°/min)\n`;
+
     for (let i = 0; i < timestamps.length; i++) {
       csvContent += `${timestamps[i]},${rawSeconds[i]},${temperatures[i]},${rorValues[i]}\n`;
-    }
-
-    if (firstCrackTimeStr) {
-      csvContent += `\nFirst Crack Event,${firstCrackTimeStr},${firstCrackSeconds}s\n`;
     }
 
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `roast_log_${new Date().toISOString().slice(0,10)}.csv`);
+    link.setAttribute("download", `roast_log_${date}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -490,7 +607,6 @@
     wakeStatusEl.textContent = "Screen Stay-Awake: Off";
     statusEl.textContent = "Roast stopped.";
 
-    // Show the "CSV?" button at the bottom after stopping
     exportContainerEl.style.display = 'block';
   });
 </script>
