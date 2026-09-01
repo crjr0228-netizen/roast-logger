@@ -12,6 +12,7 @@
       --bg-color: #121212;
       --card-bg: #1e1e1e;
       --accent-orange: #ff9800;
+      --accent-blue: #2196f3;
       --accent-red: #f44336;
       --text-main: #e0e0e0;
       --text-muted: #a0a0a0;
@@ -21,7 +22,7 @@
     body {
       background-color: var(--bg-color);
       color: var(--text-main);
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       max-width: 600px;
       margin: 0 auto;
       padding: 20px 15px;
@@ -89,7 +90,6 @@
       margin-top: 5px;
     }
 
-    /* Chart Container */
     #chart-container {
       background-color: var(--card-bg);
       border: 1px solid var(--border-color);
@@ -98,7 +98,6 @@
       margin-top: 20px;
     }
 
-    /* DTR Targets Section */
     #targets-container {
       background-color: var(--card-bg);
       border: 1px solid var(--border-color);
@@ -132,7 +131,7 @@
 </head>
 <body>
 
-  <h1>☕ Coffee Roasting Timer</h1>
+  <h1>☕ Coffee Roasting Timer 2</h1>
 
   <div class="card">
     <div id="timer">00:00</div>
@@ -147,12 +146,10 @@
     <div id="wakelock-status">Screen Stay-Awake: Off</div>
   </div>
 
-  <!-- Inline Live Chart -->
   <div id="chart-container">
     <canvas id="roastChart"></canvas>
   </div>
 
-  <!-- Target Completion Times Below Chart -->
   <div id="targets-container">
     <h3 id="fc-target-title">Target Completion Times</h3>
     <table class="targets-table">
@@ -175,7 +172,10 @@
   let audioCtx = null;
   
   const timestamps = [];
+  const rawSeconds = [];
   const temperatures = [];
+  const rorValues = [];
+  
   let firstCrackSeconds = null;
   let firstCrackTimeStr = null;
 
@@ -183,16 +183,19 @@
   const statusEl = document.getElementById('status');
   const wakeStatusEl = document.getElementById('wakelock-status');
   
-  // Speech Recognition Setup
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   const synthesis = window.speechSynthesis;
-  let recognition;
+  let recognition = null;
 
   if (SpeechRecognition) {
     recognition = new SpeechRecognition();
     recognition.continuous = false;
     recognition.interimResults = false;
     recognition.lang = 'en-US';
+
+    recognition.onstart = () => {
+      statusEl.textContent = "Listening...";
+    };
 
     recognition.onresult = (event) => {
       const transcript = event.results[0][0].transcript.toLowerCase();
@@ -211,39 +214,64 @@
         statusEl.textContent = `Could not parse: "${transcript}"`;
       }
     };
+
+    recognition.onerror = (e) => {
+      statusEl.textContent = `Voice Error: ${e.error}`;
+    };
   }
 
-  // Audio Context Beep Chime
+  function startSpeechRecognition() {
+    if (!recognition) return;
+    try {
+      recognition.abort();
+      recognition.start();
+    } catch(e) {}
+  }
+
   function playBeep() {
     try {
       if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if (audioCtx.state === 'suspended') audioCtx.resume();
       const osc = audioCtx.createOscillator();
       const gain = audioCtx.createGain();
       osc.type = 'sine';
-      osc.frequency.setValueAtTime(880, audioCtx.currentTime); // 880Hz pitch
+      osc.frequency.setValueAtTime(880, audioCtx.currentTime);
       gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
       osc.connect(gain);
       gain.connect(audioCtx.destination);
       osc.start();
-      osc.stop(audioCtx.currentTime + 0.2); // 200ms duration
+      osc.stop(audioCtx.currentTime + 0.2);
     } catch(e) {}
   }
 
-  // Initialize Dark Mode Chart
+  // Initialize Dual-Axis Chart with RoR
   const ctx = document.getElementById('roastChart').getContext('2d');
   const roastChart = new Chart(ctx, {
     type: 'line',
     data: {
       labels: timestamps,
-      datasets: [{
-        label: 'Bean Temp (°)',
-        data: temperatures,
-        borderColor: '#ff9800',
-        backgroundColor: 'rgba(255, 152, 0, 0.1)',
-        borderWidth: 2,
-        fill: true,
-        tension: 0.3
-      }]
+      datasets: [
+        {
+          label: 'Bean Temp (°)',
+          data: temperatures,
+          borderColor: '#ff9800',
+          backgroundColor: 'rgba(255, 152, 0, 0.1)',
+          borderWidth: 2,
+          fill: true,
+          tension: 0.3,
+          yAxisID: 'y'
+        },
+        {
+          label: 'RoR (°/min)',
+          data: rorValues,
+          borderColor: '#2196f3',
+          borderWidth: 2,
+          borderDash: [4, 4],
+          fill: false,
+          tension: 0.3,
+          yAxisID: 'y1'
+        }
+      ]
     },
     options: {
       responsive: true,
@@ -254,9 +282,20 @@
           grid: { color: '#2a2a2a' }
         },
         y: {
-          title: { display: true, text: 'Temperature', color: '#a0a0a0' },
-          ticks: { color: '#a0a0a0' },
+          type: 'linear',
+          display: true,
+          position: 'left',
+          title: { display: true, text: 'Temperature', color: '#ff9800' },
+          ticks: { color: '#ff9800' },
           grid: { color: '#2a2a2a' }
+        },
+        y1: {
+          type: 'linear',
+          display: true,
+          position: 'right',
+          title: { display: true, text: 'RoR (°/min)', color: '#2196f3' },
+          ticks: { color: '#2196f3' },
+          grid: { drawOnChartArea: false }
         }
       },
       plugins: {
@@ -271,7 +310,6 @@
     firstCrackTimeStr = formatTime(firstCrackSeconds);
     statusEl.textContent = `🔥 First Crack logged at ${firstCrackTimeStr}!`;
     
-    // Add red dashed vertical line on live chart
     roastChart.options.plugins.annotation.annotations.fcLine = {
       type: 'line',
       xMin: firstCrackTimeStr,
@@ -321,13 +359,15 @@
   }
 
   function promptTemperature() {
-    playBeep(); // Audio chime cue
-    if (!synthesis) return;
-    const utterance = new SpeechSynthesisUtterance("Temperature?");
-    utterance.onend = () => {
-      try { recognition.start(); } catch(e) {}
-    };
-    synthesis.speak(utterance);
+    playBeep();
+    if (synthesis) {
+      const utterance = new SpeechSynthesisUtterance("Temperature?");
+      synthesis.speak(utterance);
+    }
+    // Delay recognition slightly on iOS to prevent speech audio collision
+    setTimeout(() => {
+      startSpeechRecognition();
+    }, 1200);
   }
 
   function formatTime(sec) {
@@ -338,20 +378,37 @@
 
   function logDataPoint(sec, temp) {
     const timeStr = formatTime(sec);
+    
+    // Calculate Rate of Rise (RoR) in degrees per minute
+    let calculatedRoR = 0;
+    if (temperatures.length > 0) {
+      const prevTemp = temperatures[temperatures.length - 1];
+      const prevSec = rawSeconds[rawSeconds.length - 1];
+      const timeDiffMin = (sec - prevSec) / 60;
+      if (timeDiffMin > 0) {
+        calculatedRoR = Math.round(((temp - prevTemp) / timeDiffMin) * 10) / 10;
+      }
+    }
+
+    rawSeconds.push(sec);
     timestamps.push(timeStr);
     temperatures.push(temp);
-    statusEl.textContent = `Logged ${temp}° at ${timeStr}`;
-    roastChart.update(); // Live update chart
+    rorValues.push(calculatedRoR);
+
+    statusEl.textContent = `Logged ${temp}° (RoR: ${calculatedRoR}°/min) at ${timeStr}`;
+    roastChart.update();
   }
 
   document.getElementById('listenBtn').addEventListener('click', () => {
-    try { recognition.start(); } catch(e) {}
+    startSpeechRecognition();
   });
 
   document.getElementById('startBtn').addEventListener('click', async () => {
     secondsElapsed = 0;
+    rawSeconds.length = 0;
     timestamps.length = 0;
     temperatures.length = 0;
+    rorValues.length = 0;
     firstCrackSeconds = null;
     firstCrackTimeStr = null;
     roastChart.options.plugins.annotation.annotations = {};
@@ -360,8 +417,13 @@
 
     await requestWakeLock();
 
+    // Unlock iOS AudioContext and Speech Engine
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+
     if (synthesis) {
-      synthesis.speak(new SpeechSynthesisUtterance(""));
+      const unlock = new SpeechSynthesisUtterance("");
+      synthesis.speak(unlock);
     }
     
     timerInterval = setInterval(() => {
@@ -381,6 +443,7 @@
     clearInterval(timerInterval);
     clearInterval(voiceInterval);
     if (synthesis) synthesis.cancel();
+    if (recognition) try { recognition.abort(); } catch(e) {}
     if (wakeLock !== null) await wakeLock.release();
     wakeStatusEl.textContent = "Screen Stay-Awake: Off";
     statusEl.textContent = "Roast stopped.";
